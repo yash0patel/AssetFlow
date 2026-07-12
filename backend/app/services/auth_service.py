@@ -148,6 +148,19 @@ class AuthService:
             assigner_id=user.id  # self-assigned during sign-up
         )
 
+        # Auto-create Employee record
+        from app.services.employee_service import employee_service
+        from app.schemas.employee import EmployeeCreate
+        emp_in = EmployeeCreate(
+            user_id=user.id,
+            department_id=None,
+            designation=None,
+            reporting_manager_id=None,
+            date_of_joining=None,
+            status="Active"
+        )
+        await employee_service.create(db, obj_in=emp_in)
+
         return user
 
     async def refresh_session(

@@ -13,6 +13,12 @@ The application:
   - Exposes a /health endpoint
 """
 
+import sys
+import asyncio
+
+if sys.platform == "win32":
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+
 import logging
 import logging.config
 from contextlib import asynccontextmanager
@@ -125,8 +131,11 @@ def create_application() -> FastAPI:
     app.add_exception_handler(Exception, unhandled_exception_handler)
 
     # ── Routers ───────────────────────────────────────────────────────────────
-    from app.api.v1 import auth
+    from app.api.v1 import auth, departments, asset_categories, employees
     app.include_router(auth.router, prefix=API_V1_PREFIX + "/auth", tags=["Auth"])
+    app.include_router(departments.router, prefix=API_V1_PREFIX + "/departments", tags=["Departments"])
+    app.include_router(asset_categories.router, prefix=API_V1_PREFIX + "/asset-categories", tags=["Asset Categories"])
+    app.include_router(employees.router, prefix=API_V1_PREFIX + "/employees", tags=["Employees"])
 
     # ── Health check ──────────────────────────────────────────────────────────
     @app.get("/health", tags=["Health"], summary="Health check")
