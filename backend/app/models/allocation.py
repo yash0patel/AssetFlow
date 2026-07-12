@@ -119,7 +119,7 @@ class AssetAllocation(Base):
         Index(
             "IDX_asset_allocations_overdue",
             "expected_return_date",
-            postgresql_where=text("status = 'Active' AND expected_return_date < CURRENT_DATE"),
+            postgresql_where=text("status = 'Active'"),
         ),
     )
 

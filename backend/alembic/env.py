@@ -11,6 +11,9 @@ Alembic environment configuration.
 import asyncio
 from logging.config import fileConfig
 
+import sys
+from sqlalchemy.ext.asyncio import create_async_engine
+
 from alembic import context
 from sqlalchemy.ext.asyncio import create_async_engine
 
@@ -20,13 +23,19 @@ from app.core.config import settings
 # ── Import declarative Base (required for autogenerate) ───────────────────────
 from app.db.base import Base  # noqa: F401 — side-effect: loads all models
 
+if sys.platform == "win32":
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+
 # ---------------------------------------------------------------------------
 # Alembic Config object — provides access to values in alembic.ini
 # ---------------------------------------------------------------------------
 config = context.config
 
 # Override sqlalchemy.url with the value from our settings
-config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
+config.set_main_option(
+    "sqlalchemy.url",
+    settings.DATABASE_URL.replace("%", "%%"),
+)
 
 # Set up Python logging from alembic.ini [loggers] section
 if config.config_file_name is not None:
