@@ -14,7 +14,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Link } from "react-router-dom";
 import toast from "react-hot-toast";
-
 import { ROUTES } from "@routes/routeConstants";
 import authService from "../../services/auth.service";
 import styles from "./forgot-password.module.css";
@@ -38,11 +37,18 @@ export default function ForgotPassword() {
   const onSubmit = async (data) => {
     setIsSubmitting(true);
     try {
+      // 1. Send request to the backend. The backend will check the DB
+      // and send the email using the Gmail App Password via SMTP.
       await authService.forgotPassword(data.email);
       setSentTo(data.email);
       toast.success("Reset link sent!");
-    } catch {
-      toast.error("Something went wrong. Please try again.");
+    } catch (error) {
+      // 2. Handle DB check error from backend
+      if (error.response && error.response.status === 404) {
+        toast.error("Email address not found in our database.");
+      } else {
+        toast.error("Something went wrong. Please try again.");
+      }
     } finally {
       setIsSubmitting(false);
     }

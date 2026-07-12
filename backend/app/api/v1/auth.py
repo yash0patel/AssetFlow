@@ -4,7 +4,7 @@ app/api/v1/auth.py
 Authentication API router.
 """
 
-from fastapi import APIRouter, Depends, Request, status
+from fastapi import APIRouter, Depends, Request, status, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -19,6 +19,8 @@ from app.schemas.auth import (
     UserResponse,
 )
 from app.services.auth_service import auth_service
+from app.utils.email import send_email_async
+from app.core.config import settings
 
 router = APIRouter()
 
@@ -165,13 +167,34 @@ async def forgot_password(
     db: AsyncSession = Depends(get_db),
 ):
     """
-    Triggers password reset token generation.
-    Returns 200 OK regardless of whether the email exists for privacy/security.
+    Triggers password reset token generation and sends email via SMTP.
+    Returns 404 if email is not found to satisfy frontend requirements.
     """
     token = await auth_service.generate_password_reset_token(db, payload.email)
-    if token:
-        # In a real environment, we'd send an email. For local development/testing, we log it.
-        print(f"\n[DEV MODE] Password reset token for {payload.email}: {token}\n")
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Email address not found in our database."
+        )
+        
+    reset_link = f"{settings.FRONTEND_URL}/reset-password?token={token}"
+    html_content = f"""
+    <html>
+      <body>
+        <h3>Password Reset Request</h3>
+        <p>You recently requested to reset your password for AssetFlow.</p>
+        <p>Click the link below to reset it:</p>
+        <p><a href="{reset_link}">{reset_link}</a></p>
+        <p>If you did not request this, please ignore this email.</p>
+      </body>
+    </html>
+    """
+    
+    await send_email_async(
+        to_email=payload.email,
+        subject="AssetFlow - Password Reset",
+        html_content=html_content
+    )
         
     return {"detail": "If the email is registered, a password reset link has been sent."}
 
