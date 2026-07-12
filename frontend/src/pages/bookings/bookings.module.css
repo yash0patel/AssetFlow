@@ -1,0 +1,265 @@
+/* pages/bookings/bookings.module.css */
+
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  max-width: 900px;
+}
+
+/* ── Selectors ───────────────────────────────────────────────────────────── */
+.selectorRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-5);
+  margin-bottom: var(--space-2);
+}
+
+.fieldGroup {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.fieldLabel {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-text-muted);
+}
+
+.select, .input {
+  padding: var(--space-3) var(--space-4);
+  font-size: 0.9375rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background-color: var(--color-surface);
+  color: var(--color-text);
+  outline: none;
+  transition: border-color var(--transition-fast);
+  font-family: inherit;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.select {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23828282' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  padding-right: var(--space-10);
+}
+
+.select:focus, .input:focus {
+  border-color: var(--color-primary-400);
+}
+
+/* ── Timeline Calendar ────────────────────────────────────────────────────── */
+.timelineWrapper {
+  position: relative;
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-6) var(--space-6) var(--space-6) var(--space-12);
+  margin-top: var(--space-2);
+  min-height: 400px;
+}
+
+.timeSlot {
+  position: relative;
+  height: 60px; /* 1 hour = 60px */
+  border-bottom: 1px dashed var(--color-border);
+}
+
+.timeSlot:last-child {
+  border-bottom: none;
+}
+
+.timeLabel {
+  position: absolute;
+  left: -50px;
+  top: -10px;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  width: 40px;
+  text-align: right;
+}
+
+/* ── Booking Blocks ───────────────────────────────────────────────────────── */
+.bookingBlock {
+  position: absolute;
+  left: 0;
+  right: var(--space-6);
+  border-radius: var(--radius-md);
+  padding: var(--space-2) var(--space-4);
+  font-size: 0.875rem;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  z-index: 2;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.bookingBooked {
+  background-color: #1e3a5f;
+  color: #ffffff;
+  border: 1px solid #2a4b7c;
+}
+
+.bookingConflict {
+  background-color: transparent;
+  color: var(--color-error);
+  border: 2px dashed var(--color-error);
+  background-color: rgba(239,68,68,0.05);
+  z-index: 3;
+}
+
+.bookingTitle {
+  font-weight: 600;
+}
+
+/* ── Form Modal ───────────────────────────────────────────────────────────── */
+.modalOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.modalContent {
+  background-color: var(--color-surface);
+  border-radius: var(--radius-lg);
+  padding: var(--space-6);
+  width: 100%;
+  max-width: 450px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.modalTitle {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.twoCol {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-4);
+}
+
+.modalActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  margin-top: var(--space-4);
+}
+
+/* ── Buttons ──────────────────────────────────────────────────────────────── */
+.primaryBtn {
+  align-self: flex-start;
+  padding: var(--space-3) var(--space-8);
+  border: none;
+  border-radius: var(--radius-md);
+  background-color: var(--color-primary-600);
+  color: #fff;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color var(--transition-fast);
+}
+
+.primaryBtn:hover {
+  background-color: var(--color-primary-700);
+}
+
+.primaryBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.cancelBtn {
+  padding: var(--space-3) var(--space-6);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background-color: transparent;
+  color: var(--color-text);
+  font-size: 0.9375rem;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.cancelBtn:hover {
+  background-color: var(--color-surface-2);
+}
+
+/* ── Status List ──────────────────────────────────────────────────────────── */
+.bookingList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-top: var(--space-6);
+}
+
+.bookingItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background-color: var(--color-surface);
+}
+
+.bookingItemMeta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.bookingItemTitle {
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.bookingItemTime {
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px var(--space-3);
+  border-radius: var(--radius-full);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  border: 1px solid currentColor;
+}
+
+.badgeUpcoming { color: var(--color-primary-600); background-color: var(--color-primary-50); }
+.badgeOngoing { color: #d97706; background-color: rgba(217,119,6,0.07); }
+.badgeCompleted { color: var(--color-success); background-color: rgba(16,185,129,0.07); }
+.badgeCancelled { color: var(--color-error); background-color: rgba(239,68,68,0.07); }
+
+.actionLink {
+  background: none;
+  border: none;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-error);
+  cursor: pointer;
+  padding: 0;
+}
+
+.actionLink:hover {
+  text-decoration: underline;
+}

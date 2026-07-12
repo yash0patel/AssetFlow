@@ -1,0 +1,121 @@
+/* pages/notifications/notifications.module.css */
+
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  max-width: 900px;
+}
+
+/* ── Tabs ─────────────────────────────────────────────────────────────────── */
+.tabs {
+  display: flex;
+  gap: var(--space-3);
+  margin-bottom: var(--space-2);
+}
+
+.tab {
+  padding: var(--space-2) var(--space-5);
+  font-size: 0.9375rem;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: transparent;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.tab:hover {
+  background-color: var(--color-surface-2);
+}
+
+.tabActive {
+  color: var(--color-success); /* using a distinct color for active filter per mockup style */
+  border-color: var(--color-success);
+  background-color: rgba(16, 185, 129, 0.05);
+}
+
+/* ── List ─────────────────────────────────────────────────────────────────── */
+.list {
+  display: flex;
+  flex-direction: column;
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-4) var(--space-5);
+  border-bottom: 1px solid var(--color-border);
+  transition: background-color var(--transition-fast);
+}
+
+.item:last-child {
+  border-bottom: none;
+}
+
+.item:hover {
+  background-color: var(--color-surface-2);
+}
+
+.itemLeft {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.readCheckbox {
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--color-text-muted);
+  border-radius: 4px;
+  cursor: pointer;
+  position: relative;
+  transition: all var(--transition-fast);
+}
+
+.readCheckbox:checked {
+  background-color: var(--color-text-muted);
+  border-color: var(--color-text-muted);
+}
+
+.readCheckbox:checked::after {
+  content: "";
+  position: absolute;
+  left: 3px;
+  top: 0px;
+  width: 4px;
+  height: 8px;
+  border: solid white;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+/* ── Item Content ─────────────────────────────────────────────────────────── */
+.message {
+  font-size: 0.9375rem;
+  color: var(--color-text);
+  font-weight: 500;
+}
+
+.messageUnread {
+  font-weight: 600;
+}
+
+.time {
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+/* ── Types / Colors ───────────────────────────────────────────────────────── */
+/* In the mockup, icons/checkboxes have different faint colors based on type */
+.typeAlert .readCheckbox { border-color: var(--color-error); }
+.typeApproval .readCheckbox { border-color: var(--color-primary-500); }
+.typeBooking .readCheckbox { border-color: var(--color-success); }

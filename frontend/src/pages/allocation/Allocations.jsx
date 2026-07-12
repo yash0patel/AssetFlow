@@ -1,2 +1,443 @@
-/** pages/allocation/Allocations.jsx */
-export default function Allocations() { return <div>Allocations</div>; }
+/**
+ * pages/allocation/Allocations.jsx
+ * ──────────────────────────────────
+ * Screen 5: Asset Allocation & Transfer.
+ *
+ * Tabs:
+ *   0 – Allocate/Transfer (conflict-aware form)
+ *   1 – Active Allocations (with overdue flag + return action)
+ *   2 – Transfer Requests (pending approvals)
+ */
+
+import { useState } from "react";
+import toast from "react-hot-toast";
+import dayjs from "dayjs";
+import {
+  MOCK_ALLOCATABLE_ASSETS,
+  MOCK_EMPLOYEES,
+  MOCK_ACTIVE_ALLOCATIONS,
+  MOCK_TRANSFER_REQUESTS,
+  MOCK_HISTORY,
+} from "./mockAllocations";
+import styles from "./allocation.module.css";
+
+const MAIN_TABS = ["Allocate / Transfer", "Active Allocations", "Transfer Requests"];
+
+const TRANSFER_STATUS_CLASS = {
+  Requested: styles.badgeRequested,
+  Approved:  styles.badgeApproved,
+  Rejected:  styles.badgeOverdue,
+  Completed: styles.badgeReturned,
+  Cancelled: styles.badgeReturned,
+};
+
+export default function Allocations() {
+  const [mainTab,  setMainTab]  = useState(0);
+
+  // ── Tab 0: Allocate / Transfer state ───────────────────────────────────────
+  const [selectedAssetId,   setSelectedAssetId]   = useState("");
+  const [selectedEmployee,  setSelectedEmployee]   = useState("");
+  const [expectedReturn,    setExpectedReturn]     = useState("");
+  const [transferTo,        setTransferTo]         = useState("");
+  const [transferReason,    setTransferReason]     = useState("");
+  const [isSubmitting,      setIsSubmitting]       = useState(false);
+
+  // ── Tab 1: Active Allocations state ───────────────────────────────────────
+  const [allocations, setAllocations] = useState(MOCK_ACTIVE_ALLOCATIONS);
+  const [returnModal, setReturnModal] = useState(null); // { id, notes, condition }
+  const [returnNotes, setReturnNotes] = useState("");
+  const [returnCondition, setReturnCondition] = useState("Good");
+
+  // ── Tab 2: Transfer Requests state ────────────────────────────────────────
+  const [transfers, setTransfers] = useState(MOCK_TRANSFER_REQUESTS);
+
+  // ── Derived: selected asset object ────────────────────────────────────────
+  const selectedAsset = MOCK_ALLOCATABLE_ASSETS.find((a) => a.id === selectedAssetId);
+  const isConflict    = !!selectedAsset?.current_holder;
+
+  // ── Handlers: Allocate ────────────────────────────────────────────────────
+  const handleAllocate = async () => {
+    if (!selectedAssetId || !selectedEmployee) {
+      toast.error("Select an asset and an employee.");
+      return;
+    }
+    setIsSubmitting(true);
+    await new Promise((r) => setTimeout(r, 600));
+    toast.success(`Asset ${selectedAsset.asset_tag} allocated successfully.`);
+    setSelectedAssetId("");
+    setSelectedEmployee("");
+    setExpectedReturn("");
+    setIsSubmitting(false);
+  };
+
+  // ── Handlers: Transfer Request ─────────────────────────────────────────────
+  const handleTransferRequest = async () => {
+    if (!transferTo || !transferReason.trim()) {
+      toast.error("Select destination employee and provide a reason.");
+      return;
+    }
+    setIsSubmitting(true);
+    await new Promise((r) => setTimeout(r, 600));
+    toast.success("Transfer request submitted for approval.");
+    setTransferTo("");
+    setTransferReason("");
+    setIsSubmitting(false);
+  };
+
+  // ── Handlers: Return ──────────────────────────────────────────────────────
+  const openReturnModal = (id) => setReturnModal(id);
+  const handleReturn = async () => {
+    setIsSubmitting(true);
+    await new Promise((r) => setTimeout(r, 600));
+    setAllocations((prev) =>
+      prev.map((a) =>
+        a.id === returnModal
+          ? { ...a, status: "Returned", overdue: false }
+          : a
+      )
+    );
+    toast.success("Asset marked as returned.");
+    setReturnModal(null);
+    setReturnNotes("");
+    setReturnCondition("Good");
+    setIsSubmitting(false);
+  };
+
+  // ── Handlers: Approve / Reject Transfer ───────────────────────────────────
+  const handleTransferAction = (id, action) => {
+    setTransfers((prev) =>
+      prev.map((t) => (t.id === id ? { ...t, status: action } : t))
+    );
+    toast.success(`Transfer request ${action.toLowerCase()}.`);
+  };
+
+  return (
+    <div className={styles.container}>
+      {/* ── Main Tab Bar ─────────────────────────────────────────────────── */}
+      <div className={styles.tabs}>
+        {MAIN_TABS.map((t, i) => (
+          <button
+            key={t}
+            className={`${styles.tab} ${mainTab === i ? styles.tabActive : ""}`}
+            onClick={() => setMainTab(i)}
+          >
+            {t}
+          </button>
+        ))}
+      </div>
+
+      {/* ══ TAB 0: Allocate / Transfer ═══════════════════════════════════════ */}
+      {mainTab === 0 && (
+        <>
+          {/* Asset picker */}
+          <div className={styles.assetField}>
+            <span className={styles.fieldLabel}>Asset</span>
+            <select
+              className={styles.assetSelect}
+              value={selectedAssetId}
+              onChange={(e) => {
+                setSelectedAssetId(e.target.value);
+                setSelectedEmployee("");
+                setTransferTo("");
+                setTransferReason("");
+              }}
+            >
+              <option value="">Select an asset…</option>
+              {MOCK_ALLOCATABLE_ASSETS.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.asset_tag} – {a.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {selectedAsset && (
+            <>
+              {/* ── Conflict detected ─────────────────────────────────────── */}
+              {isConflict ? (
+                <>
+                  <div className={styles.conflictBanner}>
+                    <span className={styles.conflictTitle}>
+                      Already Allocated to {selectedAsset.current_holder.name}{" "}
+                      ({selectedAsset.current_holder.department})
+                    </span>
+                    <span className={styles.conflictSub}>
+                      Direct re-allocation is blocked — submit a transfer request below
+                    </span>
+                  </div>
+
+                  {/* Transfer Request form */}
+                  <span className={styles.sectionTitle}>Transfer Request</span>
+                  <div className={styles.card}>
+                    <div className={styles.twoCol}>
+                      <div className={styles.fieldGroup}>
+                        <label className={styles.label}>From</label>
+                        <input
+                          className={styles.input}
+                          value={selectedAsset.current_holder.name}
+                          disabled
+                        />
+                      </div>
+                      <div className={styles.fieldGroup}>
+                        <label className={styles.label}>To</label>
+                        <select
+                          className={styles.select}
+                          value={transferTo}
+                          onChange={(e) => setTransferTo(e.target.value)}
+                        >
+                          <option value="">Select Employee…</option>
+                          {MOCK_EMPLOYEES.filter(
+                            (emp) => emp.id !== selectedAsset.current_holder.id
+                          ).map((emp) => (
+                            <option key={emp.id} value={emp.id}>
+                              {emp.name} – {emp.department}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className={styles.fieldGroup}>
+                      <label className={styles.label}>Reason</label>
+                      <textarea
+                        className={styles.textarea}
+                        placeholder="Explain why this asset needs to be transferred…"
+                        value={transferReason}
+                        onChange={(e) => setTransferReason(e.target.value)}
+                      />
+                    </div>
+
+                    <button
+                      className={styles.primaryBtn}
+                      disabled={isSubmitting}
+                      onClick={handleTransferRequest}
+                    >
+                      {isSubmitting ? "Submitting…" : "Submit Request"}
+                    </button>
+                  </div>
+                </>
+              ) : (
+                /* ── Available: direct allocation form ───────────────────── */
+                <>
+                  <span className={styles.sectionTitle}>Allocate Asset</span>
+                  <div className={styles.card}>
+                    <div className={styles.twoCol}>
+                      <div className={styles.fieldGroup}>
+                        <label className={styles.label}>Assign to Employee</label>
+                        <select
+                          className={styles.select}
+                          value={selectedEmployee}
+                          onChange={(e) => setSelectedEmployee(e.target.value)}
+                        >
+                          <option value="">Select Employee…</option>
+                          {MOCK_EMPLOYEES.map((emp) => (
+                            <option key={emp.id} value={emp.id}>
+                              {emp.name} – {emp.department}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className={styles.fieldGroup}>
+                        <label className={styles.label}>Expected Return Date (optional)</label>
+                        <input
+                          className={styles.input}
+                          type="date"
+                          value={expectedReturn}
+                          onChange={(e) => setExpectedReturn(e.target.value)}
+                        />
+                      </div>
+                    </div>
+
+                    <button
+                      className={styles.primaryBtn}
+                      disabled={isSubmitting}
+                      onClick={handleAllocate}
+                    >
+                      {isSubmitting ? "Allocating…" : "Allocate Asset"}
+                    </button>
+                  </div>
+                </>
+              )}
+
+              {/* ── Allocation History (always shown) ──────────────────────── */}
+              <span className={styles.sectionTitle}>Allocation History</span>
+              <div className={styles.historyList}>
+                {MOCK_HISTORY.map((h, i) => (
+                  <div key={i} className={styles.historyItem}>
+                    <span className={styles.historyDate}>{h.date}</span>
+                    <span>{h.event}</span>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </>
+      )}
+
+      {/* ══ TAB 1: Active Allocations ═════════════════════════════════════════ */}
+      {mainTab === 1 && (
+        <>
+          <div className={styles.tableContainer}>
+            <table className={styles.table}>
+              <thead>
+                <tr>
+                  <th>Asset</th>
+                  <th>Employee</th>
+                  <th>Department</th>
+                  <th>Allocated On</th>
+                  <th>Expected Return</th>
+                  <th>Status</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {allocations.map((alloc) => (
+                  <tr
+                    key={alloc.id}
+                    className={alloc.overdue ? styles.overdueRow : ""}
+                  >
+                    <td>
+                      <span className={styles.monoText}>{alloc.asset_tag}</span>
+                      <div style={{ fontSize: "0.8125rem", color: "var(--color-text-muted)", marginTop: "2px" }}>
+                        {alloc.asset_name}
+                      </div>
+                    </td>
+                    <td className={styles.primaryText}>{alloc.employee}</td>
+                    <td>{alloc.department}</td>
+                    <td>{alloc.allocated_on}</td>
+                    <td>
+                      {alloc.expected_return
+                        ? alloc.expected_return
+                        : <span style={{ color: "var(--color-text-subtle)" }}>—</span>}
+                    </td>
+                    <td>
+                      <span
+                        className={`${styles.badge} ${
+                          alloc.overdue ? styles.badgeOverdue :
+                          alloc.status === "Returned" ? styles.badgeReturned :
+                          styles.badgeActive
+                        }`}
+                      >
+                        {alloc.status}
+                      </span>
+                    </td>
+                    <td>
+                      {alloc.status !== "Returned" && (
+                        <button
+                          className={`${styles.actionLink}`}
+                          onClick={() => openReturnModal(alloc.id)}
+                        >
+                          Mark Returned
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Return modal — inline lightweight */}
+          {returnModal && (
+            <div className={styles.card} style={{ border: "1px solid var(--color-primary-300)" }}>
+              <span className={styles.sectionTitle}>Return Check-in</span>
+              <div className={styles.twoCol}>
+                <div className={styles.fieldGroup}>
+                  <label className={styles.label}>Condition on Return</label>
+                  <select
+                    className={styles.select}
+                    value={returnCondition}
+                    onChange={(e) => setReturnCondition(e.target.value)}
+                  >
+                    {["New", "Good", "Fair", "Poor", "Damaged"].map((c) => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div className={styles.fieldGroup}>
+                <label className={styles.label}>Return Notes</label>
+                <textarea
+                  className={styles.textarea}
+                  placeholder="Any observations on return…"
+                  value={returnNotes}
+                  onChange={(e) => setReturnNotes(e.target.value)}
+                />
+              </div>
+              <div style={{ display: "flex", gap: "var(--space-4)" }}>
+                <button className={styles.primaryBtn} disabled={isSubmitting} onClick={handleReturn}>
+                  {isSubmitting ? "Saving…" : "Confirm Return"}
+                </button>
+                <button
+                  className={styles.primaryBtn}
+                  style={{ background: "transparent", color: "var(--color-text-muted)", border: "1px solid var(--color-border)" }}
+                  onClick={() => setReturnModal(null)}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* ══ TAB 2: Transfer Requests ══════════════════════════════════════════ */}
+      {mainTab === 2 && (
+        <div className={styles.tableContainer}>
+          <table className={styles.table}>
+            <thead>
+              <tr>
+                <th>Asset</th>
+                <th>From</th>
+                <th>To</th>
+                <th>Reason</th>
+                <th>Requested On</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {transfers.map((tr) => (
+                <tr key={tr.id}>
+                  <td>
+                    <span className={styles.monoText}>{tr.asset_tag}</span>
+                    <div style={{ fontSize: "0.8125rem", color: "var(--color-text-muted)", marginTop: "2px" }}>
+                      {tr.asset_name}
+                    </div>
+                  </td>
+                  <td>{tr.from}</td>
+                  <td className={styles.primaryText}>{tr.to}</td>
+                  <td style={{ maxWidth: "200px", fontSize: "0.875rem" }}>{tr.reason}</td>
+                  <td>{tr.requested_on}</td>
+                  <td>
+                    <span className={`${styles.badge} ${TRANSFER_STATUS_CLASS[tr.status] || ""}`}>
+                      {tr.status}
+                    </span>
+                  </td>
+                  <td>
+                    {tr.status === "Requested" && (
+                      <div style={{ display: "flex", gap: "var(--space-3)" }}>
+                        <button
+                          className={styles.actionLink}
+                          onClick={() => handleTransferAction(tr.id, "Approved")}
+                        >
+                          Approve
+                        </button>
+                        <button
+                          className={`${styles.actionLink} ${styles.dangerLink}`}
+                          onClick={() => handleTransferAction(tr.id, "Rejected")}
+                        >
+                          Reject
+                        </button>
+                      </div>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}

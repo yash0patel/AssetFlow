@@ -1,0 +1,309 @@
+/* pages/allocation/allocation.module.css */
+
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  max-width: 900px;
+}
+
+/* ── Asset Selector ───────────────────────────────────────────────────────── */
+.assetField {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.fieldLabel {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-text-muted);
+}
+
+.assetSelect {
+  padding: var(--space-3) var(--space-4);
+  font-size: 0.9375rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background-color: var(--color-surface);
+  color: var(--color-text);
+  outline: none;
+  transition: border-color var(--transition-fast);
+  font-family: inherit;
+}
+
+.assetSelect:focus {
+  border-color: var(--color-primary-400);
+}
+
+/* ── Conflict Banner ──────────────────────────────────────────────────────── */
+.conflictBanner {
+  background-color: rgba(239, 68, 68, 0.08);
+  border: 1px solid var(--color-error);
+  border-radius: var(--radius-md);
+  padding: var(--space-4) var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.conflictTitle {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--color-error);
+}
+
+.conflictSub {
+  font-size: 0.875rem;
+  color: var(--color-error);
+  opacity: 0.85;
+}
+
+/* ── Section Title ────────────────────────────────────────────────────────── */
+.sectionTitle {
+  font-size: 1.0625rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+/* ── Form Card ────────────────────────────────────────────────────────────── */
+.card {
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+/* ── Two-col row ─────────────────────────────────────────────────────────── */
+.twoCol {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-5);
+}
+
+.fieldGroup {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-text);
+}
+
+.input,
+.select,
+.textarea {
+  padding: var(--space-3) var(--space-4);
+  font-size: 0.9375rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background-color: var(--color-surface);
+  color: var(--color-text);
+  outline: none;
+  transition: border-color var(--transition-fast);
+  font-family: inherit;
+  box-sizing: border-box;
+  width: 100%;
+}
+
+.input:focus,
+.select:focus,
+.textarea:focus {
+  border-color: var(--color-primary-400);
+}
+
+.input[disabled],
+.select[disabled] {
+  background-color: var(--color-surface-2);
+  color: var(--color-text-muted);
+  cursor: not-allowed;
+}
+
+.select {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23828282' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  padding-right: var(--space-10);
+}
+
+.textarea {
+  resize: vertical;
+  min-height: 110px;
+}
+
+/* ── Primary Action Button ────────────────────────────────────────────────── */
+.primaryBtn {
+  align-self: flex-start;
+  padding: var(--space-3) var(--space-8);
+  border: none;
+  border-radius: var(--radius-md);
+  background-color: var(--color-primary-600);
+  color: #fff;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color var(--transition-fast);
+}
+
+.primaryBtn:hover {
+  background-color: var(--color-primary-700);
+}
+
+.primaryBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ── Tabs ─────────────────────────────────────────────────────────────────── */
+.tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.tab {
+  padding: var(--space-3) var(--space-6);
+  font-size: 0.9375rem;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  border: none;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  cursor: pointer;
+  margin-bottom: -1px;
+  transition: all var(--transition-fast);
+}
+
+.tab:hover { color: var(--color-text); }
+
+.tabActive {
+  color: var(--color-primary-600);
+  border-bottom-color: var(--color-primary-500);
+}
+
+/* ── History List ─────────────────────────────────────────────────────────── */
+.historyList {
+  display: flex;
+  flex-direction: column;
+}
+
+.historyItem {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-4);
+  padding: var(--space-4) 0;
+  border-bottom: 1px solid var(--color-border);
+  font-size: 0.9375rem;
+  color: var(--color-text-muted);
+}
+
+.historyItem:last-child {
+  border-bottom: none;
+}
+
+.historyDate {
+  font-weight: 600;
+  color: var(--color-text);
+  white-space: nowrap;
+  min-width: 60px;
+  font-size: 0.875rem;
+}
+
+.historyEmpty {
+  padding: var(--space-6) 0;
+  color: var(--color-text-subtle);
+  font-size: 0.9375rem;
+}
+
+/* ── Status Badges ────────────────────────────────────────────────────────── */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px var(--space-3);
+  border-radius: var(--radius-full);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  border: 1px solid currentColor;
+  white-space: nowrap;
+}
+
+.badgeActive   { color: var(--color-primary-600); background-color: var(--color-primary-50); }
+.badgeReturned { color: var(--color-success);     background-color: rgba(16,185,129,0.07); }
+.badgeOverdue  { color: var(--color-error);       background-color: rgba(239,68,68,0.07); }
+.badgeRequested { color: #d97706;                 background-color: rgba(217,119,6,0.07); }
+.badgeApproved  { color: var(--color-success);    background-color: rgba(16,185,129,0.07); }
+
+/* ── Overdue Row Highlight ────────────────────────────────────────────────── */
+.overdueRow td {
+  background-color: rgba(239, 68, 68, 0.04);
+}
+
+.tableContainer {
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.table th {
+  padding: var(--space-3) var(--space-5);
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--color-text);
+  border-bottom: 1px solid var(--color-border);
+  background-color: var(--color-surface-2);
+}
+
+.table td {
+  padding: var(--space-4) var(--space-5);
+  font-size: 0.9375rem;
+  color: var(--color-text-muted);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.table tr:last-child td {
+  border-bottom: none;
+}
+
+.primaryText {
+  font-weight: 500;
+  color: var(--color-text);
+}
+
+.monoText {
+  font-family: monospace;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.actionLink {
+  background: none;
+  border: none;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-primary-600);
+  cursor: pointer;
+  padding: 0;
+}
+
+.actionLink:hover {
+  text-decoration: underline;
+}
+
+.dangerLink {
+  color: var(--color-error);
+}

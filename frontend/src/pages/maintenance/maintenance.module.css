@@ -1,0 +1,234 @@
+/* pages/maintenance/maintenance.module.css */
+
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  height: calc(100vh - 120px);
+  max-width: 1400px;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.pageTitle {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.primaryBtn {
+  padding: var(--space-2) var(--space-6);
+  border: none;
+  border-radius: var(--radius-md);
+  background-color: var(--color-primary-600);
+  color: #fff;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color var(--transition-fast);
+}
+
+.primaryBtn:hover {
+  background-color: var(--color-primary-700);
+}
+
+/* ── Kanban Board ─────────────────────────────────────────────────────────── */
+.board {
+  display: flex;
+  gap: var(--space-5);
+  overflow-x: auto;
+  flex: 1;
+  padding-bottom: var(--space-4);
+}
+
+.column {
+  flex: 0 0 260px;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--color-surface);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  overflow: hidden;
+}
+
+.columnHeader {
+  padding: var(--space-3) var(--space-4);
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--color-text);
+  border-bottom: 1px solid var(--color-border);
+  background-color: var(--color-surface-2);
+  text-transform: capitalize;
+}
+
+.columnBody {
+  padding: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  flex: 1;
+  overflow-y: auto;
+  background-color: var(--color-bg);
+}
+
+/* ── Kanban Cards ─────────────────────────────────────────────────────────── */
+.card {
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
+  cursor: pointer;
+  transition: box-shadow var(--transition-fast), border-color var(--transition-fast);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.card:hover {
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  border-color: var(--color-text-muted);
+}
+
+.cardResolved {
+  border-color: var(--color-success);
+}
+.cardResolved .assetTag,
+.cardResolved .issueDesc {
+  color: var(--color-success);
+}
+
+.assetTag {
+  font-family: monospace;
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: var(--color-text);
+}
+
+.issueDesc {
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
+  line-height: 1.4;
+}
+
+.techName, .statusDetail {
+  font-size: 0.75rem;
+  color: var(--color-text-subtle);
+  margin-top: var(--space-1);
+}
+
+/* ── Modals ───────────────────────────────────────────────────────────────── */
+.modalOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.modalContent {
+  background-color: var(--color-surface);
+  border-radius: var(--radius-lg);
+  padding: var(--space-6);
+  width: 100%;
+  max-width: 450px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.modalTitle {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.fieldGroup {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.fieldLabel {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-text);
+}
+
+.input, .select, .textarea {
+  padding: var(--space-3) var(--space-4);
+  font-size: 0.9375rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background-color: var(--color-surface);
+  color: var(--color-text);
+  outline: none;
+  font-family: inherit;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.textarea {
+  resize: vertical;
+  min-height: 80px;
+}
+
+.select {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23828282' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+}
+
+.fileInput {
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
+}
+
+.modalActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  margin-top: var(--space-4);
+}
+
+.cancelBtn {
+  padding: var(--space-2) var(--space-6);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background-color: transparent;
+  color: var(--color-text);
+  font-size: 0.9375rem;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.cancelBtn:hover {
+  background-color: var(--color-surface-2);
+}
+
+.footerNote {
+  font-size: 0.8125rem;
+  color: var(--color-text-subtle);
+  margin-top: var(--space-2);
+  text-align: center;
+}
+
+.dangerBtn {
+  padding: var(--space-2) var(--space-6);
+  border: none;
+  border-radius: var(--radius-md);
+  background-color: var(--color-error);
+  color: #fff;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  cursor: pointer;
+}

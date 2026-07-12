@@ -1,0 +1,100 @@
+/* pages/reports/reports.module.css */
+
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  max-width: 1100px;
+}
+
+.pageTitle {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--color-text);
+  margin-bottom: var(--space-4);
+}
+
+/* ── Charts Grid ──────────────────────────────────────────────────────────── */
+.chartsGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-6);
+}
+
+.chartCard {
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 20px; /* Custom 20px radius for data widgets per brand guidelines */
+  padding: var(--space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.cardTitle {
+  font-size: 1.0625rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.chartWrapper {
+  width: 100%;
+  height: 250px;
+}
+
+/* ── Lists Grid ───────────────────────────────────────────────────────────── */
+.listsGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-6);
+  padding-bottom: var(--space-6);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.listGroup {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.listTitle {
+  font-size: 1.0625rem;
+  font-weight: 600;
+  color: var(--color-text);
+  margin-bottom: var(--space-2);
+}
+
+.listItem {
+  font-size: 0.9375rem;
+  color: var(--color-text-muted);
+  line-height: 1.5;
+}
+
+.itemName {
+  font-weight: 500;
+  color: var(--color-text);
+}
+
+/* ── Bottom Section ───────────────────────────────────────────────────────── */
+.bottomSection {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.primaryBtn {
+  align-self: flex-start;
+  padding: var(--space-3) var(--space-8);
+  border: none;
+  border-radius: 0px; /* Brand CTA button: sharp 0px corners */
+  background-color: var(--color-text); /* Graphite background */
+  color: #fff;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity var(--transition-fast);
+}
+
+.primaryBtn:hover {
+  opacity: 0.9;
+}
