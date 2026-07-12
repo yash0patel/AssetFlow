@@ -14,6 +14,10 @@ class MaintenanceApprove(BaseModel):
     technician_id: Optional[UUID] = None
 
 
+class MaintenanceAssign(BaseModel):
+    technician_id: UUID
+
+
 class MaintenanceReject(BaseModel):
     rejection_reason: str = Field(..., min_length=1)
 

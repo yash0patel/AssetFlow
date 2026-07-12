@@ -37,6 +37,11 @@ const maintenanceService = {
     return response.data;
   },
 
+  async assignRequest(id, data) {
+    const response = await api.post(`/maintenance/${id}/assign`, data);
+    return response.data;
+  },
+
   async startRequest(id) {
     const response = await api.post(`/maintenance/${id}/start`);
     return response.data;

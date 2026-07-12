@@ -53,11 +53,12 @@ async def list_bookings(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    role = await user_repo.get_user_role_name(db, current_user.id)
     emp_filter = None
-    if role == "employee":
-        emp = await employee_repo.get_by_user_id(db, current_user.id)
-        emp_filter = emp.id if emp else None
+    if not asset_id:
+        role = await user_repo.get_user_role_name(db, current_user.id)
+        if role == "employee":
+            emp = await employee_repo.get_by_user_id(db, current_user.id)
+            emp_filter = emp.id if emp else None
 
     skip = (page - 1) * page_size
     bookings, total = await booking_repo.list_bookings(

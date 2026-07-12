@@ -10,7 +10,7 @@ from app.repositories.maintenance_repository import maintenance_repo
 from app.repositories.user_repository import user_repo
 from app.repositories.employee_repository import employee_repo
 from app.schemas.maintenance import (
-    MaintenanceCreate, MaintenanceApprove, MaintenanceReject, MaintenanceResolve,
+    MaintenanceCreate, MaintenanceApprove, MaintenanceAssign, MaintenanceReject, MaintenanceResolve,
     MaintenanceResponse, MaintenanceListResponse, TechnicianResponse,
 )
 from app.services.maintenance_service import maintenance_service
@@ -158,6 +158,23 @@ async def reject_maintenance(
     async with db.begin_nested():
         mr = await maintenance_service.reject(
             db, mr_id=id, approver_employee_id=emp.id, rejection_reason=payload.rejection_reason
+        )
+    await db.commit()
+    mr_full = await maintenance_repo.get_by_id_with_relations(db, mr.id)
+    return _build(mr_full)
+
+
+@router.post("/{id}/assign", response_model=MaintenanceResponse)
+async def assign_technician(
+    id: UUID,
+    payload: MaintenanceAssign,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    await _require_manager(db, current_user)
+    async with db.begin_nested():
+        mr = await maintenance_service.assign_technician(
+            db, mr_id=id, technician_id=payload.technician_id
         )
     await db.commit()
     mr_full = await maintenance_repo.get_by_id_with_relations(db, mr.id)

@@ -296,6 +296,7 @@ export default function Employees() {
               <th>Department</th>
               <th>Designation</th>
               <th>Manager</th>
+              <th>Joining Date</th>
               <th>Role</th>
               <th>Status</th>
               {isAdmin && <th>Actions</th>}
@@ -304,7 +305,7 @@ export default function Employees() {
           <tbody>
             {employees.length === 0 ? (
               <tr>
-                <td colSpan={isAdmin ? 9 : 8} style={{ textAlign: "center" }}>
+                <td colSpan={isAdmin ? 10 : 9} style={{ textAlign: "center" }}>
                   No employees found.
                 </td>
               </tr>
@@ -319,6 +320,7 @@ export default function Employees() {
                     <td>{emp.department_name || "--"}</td>
                     <td>{emp.designation || "--"}</td>
                     <td>{emp.reporting_manager_name || "--"}</td>
+                    <td>{emp.date_of_joining || "--"}</td>
                     <td>
                       <span style={{ fontWeight: emp.role !== "Employee" ? 600 : 400 }}>
                         {emp.role}

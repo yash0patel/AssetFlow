@@ -4,7 +4,7 @@
  * Screen 6: Resource Booking Screen.
  */
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import toast from "react-hot-toast";
 import dayjs from "dayjs";
 import assetService from "@services/asset.service";
@@ -51,28 +51,37 @@ export default function Bookings() {
   const [newStart, setNewStart] = useState("09:30");
   const [newEnd, setNewEnd] = useState("10:30");
 
-  // Load resources
+  const isFirstMount = useRef(true);
+
+  // Load resources and initial bookings
   useEffect(() => {
-    async function loadResources() {
+    async function initBookings() {
+      setLoading(true);
       try {
         const assets = await assetService.listBookableAssets();
         setResources(assets);
         if (assets.length > 0) {
-          setSelectedResource(assets[0].id);
+          const firstId = assets[0].id;
+          setSelectedResource(firstId);
+          const data = await bookingService.listBookings({ asset_id: firstId });
+          setBookings(data.items || []);
         }
       } catch (err) {
-        console.error("Error loading resources:", err);
+        console.error("Error loading resources/bookings:", err);
+      } finally {
+        setLoading(false);
       }
     }
-    loadResources();
+    initBookings();
   }, []);
 
-  // Load bookings for selected resource
-  const loadBookings = async () => {
-    if (!selectedResource) return;
+  // Load bookings for selected resource (only on change after first mount)
+  const loadBookings = async (resId) => {
+    const id = resId || selectedResource;
+    if (!id) return;
     setLoading(true);
     try {
-      const data = await bookingService.listBookings({ asset_id: selectedResource });
+      const data = await bookingService.listBookings({ asset_id: id });
       setBookings(data.items || []);
     } catch (err) {
       console.error("Error loading bookings:", err);
@@ -82,7 +91,13 @@ export default function Bookings() {
   };
 
   useEffect(() => {
-    loadBookings();
+    if (isFirstMount.current) {
+      isFirstMount.current = false;
+      return;
+    }
+    if (selectedResource) {
+      loadBookings(selectedResource);
+    }
   }, [selectedResource]);
 
   // Get active bookings for the selected resource and date

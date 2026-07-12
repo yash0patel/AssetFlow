@@ -112,7 +112,7 @@ export default function Maintenance() {
         }
       } else if (activeTicket.status === "Approved") {
         if (editTech) {
-          await maintenanceService.approveRequest(activeTicket.id, {
+          await maintenanceService.assignRequest(activeTicket.id, {
             technician_id: editTech,
           });
         }
