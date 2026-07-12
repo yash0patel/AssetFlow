@@ -14,6 +14,7 @@ import toast from "react-hot-toast";
 
 import { useAuth } from "@hooks/useAuth";
 import { ROUTES } from "@routes/routeConstants";
+import authService from "../../services/auth.service";
 import styles from "./login.module.css";
 
 // ── Validation schema ──────────────────────────────────────────────────────────
@@ -21,30 +22,6 @@ const loginSchema = z.object({
   email: z.string().email("Enter a valid email address"),
   password: z.string().min(6, "Password must be at least 6 characters"),
 });
-
-// ── Mock credentials (replace with real API call later) ───────────────────────
-const MOCK_USERS = [
-  {
-    email: "admin@company.com",
-    password: "admin123",
-    user: { id: 1, name: "Admin User", email: "admin@company.com", role: "admin" },
-    token: "mock-admin-token",
-  },
-  {
-    email: "employee@company.com",
-    password: "emp123",
-    user: { id: 2, name: "Jane Doe", email: "employee@company.com", role: "employee" },
-    token: "mock-employee-token",
-  },
-];
-
-function mockLogin(email, password) {
-  const match = MOCK_USERS.find(
-    (u) => u.email === email && u.password === password
-  );
-  if (!match) throw new Error("Invalid email or password");
-  return { user: match.user, token: match.token };
-}
 
 // ── Component ──────────────────────────────────────────────────────────────────
 export default function Login() {
@@ -61,12 +38,14 @@ export default function Login() {
   const onSubmit = async (data) => {
     setIsSubmitting(true);
     try {
-      const { user, token } = mockLogin(data.email, data.password);
-      login(user, token);
+      const response = await authService.login(data.email, data.password);
+      const { user, access_token, refresh_token } = response;
+      login(user, access_token, refresh_token);
       toast.success(`Welcome back, ${user.name.split(" ")[0]}!`);
       navigate(ROUTES.DASHBOARD, { replace: true });
     } catch (err) {
-      toast.error(err.message);
+      const errorMsg = err.response?.data?.detail || "Invalid email or password";
+      toast.error(errorMsg);
     } finally {
       setIsSubmitting(false);
     }

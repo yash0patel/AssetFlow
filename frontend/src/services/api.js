@@ -46,12 +46,16 @@ api.interceptors.response.use(
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
 
-      // TODO: implement refresh-token logic in auth.service.js
-      // const newToken = await authService.refreshToken();
-      // if (newToken) {
-      //   originalRequest.headers.Authorization = `Bearer ${newToken}`;
-      //   return api(originalRequest);
-      // }
+      try {
+        const { default: authService } = await import("./auth.service");
+        const newToken = await authService.refreshToken();
+        if (newToken) {
+          originalRequest.headers.Authorization = `Bearer ${newToken}`;
+          return api(originalRequest);
+        }
+      } catch (refreshError) {
+        console.error("Auto token refresh failed, logging out:", refreshError);
+      }
 
       // Clear tokens and redirect to login
       localStorage.removeItem("access_token");

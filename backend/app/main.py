@@ -125,9 +125,8 @@ def create_application() -> FastAPI:
     app.add_exception_handler(Exception, unhandled_exception_handler)
 
     # ── Routers ───────────────────────────────────────────────────────────────
-    # Routers are imported and included here as they are implemented.
-    # from app.api.v1 import auth, assets, ...
-    # app.include_router(auth.router, prefix=API_V1_PREFIX + "/auth", tags=["Auth"])
+    from app.api.v1 import auth
+    app.include_router(auth.router, prefix=API_V1_PREFIX + "/auth", tags=["Auth"])
 
     # ── Health check ──────────────────────────────────────────────────────────
     @app.get("/health", tags=["Health"], summary="Health check")

@@ -6,6 +6,7 @@
  */
 
 import { createContext, useCallback, useEffect, useMemo, useState } from "react";
+import authService from "../services/auth.service";
 
 export const AuthContext = createContext(null);
 
@@ -15,13 +16,21 @@ export function AuthProvider({ children }) {
 
   // On mount — restore session from localStorage
   useEffect(() => {
-    const token = localStorage.getItem("access_token");
-    if (token) {
-      // TODO: validate token and fetch /me in business-logic phase
-      // const profile = await authService.getMe();
-      // setUser(profile);
+    async function restoreSession() {
+      const token = localStorage.getItem("access_token");
+      if (token) {
+        try {
+          const profile = await authService.getMe();
+          setUser(profile);
+        } catch (err) {
+          console.error("Failed to restore session:", err);
+          localStorage.removeItem("access_token");
+          localStorage.removeItem("refresh_token");
+        }
+      }
+      setIsLoading(false);
     }
-    setIsLoading(false);
+    restoreSession();
   }, []);
 
   const login = useCallback((userData, token, refreshToken) => {
@@ -30,10 +39,16 @@ export function AuthProvider({ children }) {
     setUser(userData);
   }, []);
 
-  const logout = useCallback(() => {
-    localStorage.removeItem("access_token");
-    localStorage.removeItem("refresh_token");
-    setUser(null);
+  const logout = useCallback(async () => {
+    try {
+      await authService.logout();
+    } catch (err) {
+      console.error("Logout failed on backend, clearing local storage:", err);
+    } finally {
+      localStorage.removeItem("access_token");
+      localStorage.removeItem("refresh_token");
+      setUser(null);
+    }
   }, []);
 
   const value = useMemo(

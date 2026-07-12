@@ -16,18 +16,13 @@ import { Link } from "react-router-dom";
 import toast from "react-hot-toast";
 
 import { ROUTES } from "@routes/routeConstants";
+import authService from "../../services/auth.service";
 import styles from "./forgot-password.module.css";
 
 // ── Validation schema ──────────────────────────────────────────────────────────
 const forgotSchema = z.object({
   email: z.string().email("Enter a valid email address"),
 });
-
-// ── Mock send reset link ───────────────────────────────────────────────────────
-function mockSendResetLink(email) {
-  // Simulate a network delay and always succeed
-  return new Promise((resolve) => setTimeout(() => resolve({ email }), 800));
-}
 
 // ── Component ──────────────────────────────────────────────────────────────────
 export default function ForgotPassword() {
@@ -43,7 +38,7 @@ export default function ForgotPassword() {
   const onSubmit = async (data) => {
     setIsSubmitting(true);
     try {
-      await mockSendResetLink(data.email);
+      await authService.forgotPassword(data.email);
       setSentTo(data.email);
       toast.success("Reset link sent!");
     } catch {

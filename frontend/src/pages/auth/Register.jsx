@@ -15,6 +15,7 @@ import toast from "react-hot-toast";
 
 import { useAuth } from "@hooks/useAuth";
 import { ROUTES } from "@routes/routeConstants";
+import authService from "../../services/auth.service";
 import styles from "./register.module.css";
 
 // ── Validation schema ──────────────────────────────────────────────────────────
@@ -33,14 +34,6 @@ const registerSchema = z
     path: ["confirmPassword"],
   });
 
-// ── Mock signup (replace with real API call later) ─────────────────────────────
-function mockRegister(fullName, email) {
-  return {
-    user: { id: Date.now(), name: fullName, email, role: "employee" },
-    token: `mock-token-${Date.now()}`,
-  };
-}
-
 // ── Component ──────────────────────────────────────────────────────────────────
 export default function Register() {
   const navigate = useNavigate();
@@ -56,12 +49,14 @@ export default function Register() {
   const onSubmit = async (data) => {
     setIsSubmitting(true);
     try {
-      const { user, token } = mockRegister(data.fullName, data.email);
-      login(user, token);
+      const response = await authService.register(data.fullName, data.email, data.password);
+      const { user, access_token, refresh_token } = response;
+      login(user, access_token, refresh_token);
       toast.success("Account created! Welcome to AssetFlow.");
       navigate(ROUTES.DASHBOARD, { replace: true });
     } catch (err) {
-      toast.error("Registration failed. Please try again.");
+      const errorMsg = err.response?.data?.detail || "Registration failed. Please try again.";
+      toast.error(errorMsg);
     } finally {
       setIsSubmitting(false);
     }

@@ -68,6 +68,14 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
+    # ── SMTP Mail ──────────────────────────────────────────────────────────────
+    SMTP_HOST: str = "smtp.gmail.com"
+    SMTP_PORT: int = 587
+    SMTP_USER: str = ""
+    SMTP_PASSWORD: str = ""
+    EMAILS_FROM_EMAIL: str = ""
+    EMAILS_FROM_NAME: str = "AssetFlow"
+
     # ── Logging ────────────────────────────────────────────────────────────────
     LOG_LEVEL: str = "INFO"
 
