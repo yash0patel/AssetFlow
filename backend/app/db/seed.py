@@ -26,8 +26,14 @@ async def seed() -> None:
     async with AsyncSessionLocal() as session:
         print("Starting database seeding...")
         
+        # Delete roles not in simplified list and clean junctions
+        from sqlalchemy import delete
+        await session.execute(delete(UserRole))
+        await session.execute(delete(RolePermission))
+        
         # 1. Base Roles
-        role_names = ["super_admin", "admin", "manager", "employee", "auditor", "viewer"]
+        role_names = ["admin", "asset_manager", "department_head", "employee"]
+        await session.execute(delete(Role).where(Role.name.not_in(role_names)))
         roles_db = {}
         for role_name in role_names:
             stmt = select(Role).where(Role.name == role_name)
@@ -36,7 +42,7 @@ async def seed() -> None:
             if not role:
                 role = Role(
                     name=role_name,
-                    description=f"{role_name.capitalize()} role",
+                    description=f"{role_name.replace('_', ' ').capitalize()} role",
                     is_active=True
                 )
                 session.add(role)
@@ -169,7 +175,15 @@ async def seed() -> None:
                 )
                 session.add(profile)
                 
-                # Assign role
+            # Ensure the user has the seeded role assigned
+            stmt_check_ur = select(UserRole).where(
+                (UserRole.user_id == user.id) &
+                (UserRole.role_id == roles_db[u_data["role"]].id) &
+                (UserRole.revoked_at.is_(None))
+            )
+            res_ur = await session.execute(stmt_check_ur)
+            existing_ur = res_ur.scalar_one_or_none()
+            if not existing_ur:
                 user_role = UserRole(
                     user_id=user.id,
                     role_id=roles_db[u_data["role"]].id,

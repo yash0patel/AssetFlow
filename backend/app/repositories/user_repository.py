@@ -110,11 +110,19 @@ class UserRepository(BaseRepository[User]):
         return user_role
 
     async def get_user_role_name(self, db: AsyncSession, user_id: UUID) -> str:
-        """Find the user's primary active role name. Default to 'employee' if none."""
+        """Find the user's primary active role name with priority ordering."""
+        from sqlalchemy import case
+        priority = case(
+            (Role.name == "admin", 1),
+            (Role.name == "asset_manager", 2),
+            (Role.name == "department_head", 3),
+            else_=4
+        )
         stmt = (
             select(Role.name)
             .join(UserRole, UserRole.role_id == Role.id)
             .where((UserRole.user_id == user_id) & (UserRole.revoked_at.is_(None)))
+            .order_by(priority)
             .limit(1)
         )
         res = await db.execute(stmt)

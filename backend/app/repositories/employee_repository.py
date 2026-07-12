@@ -33,12 +33,13 @@ class EmployeeRepository(BaseRepository[Employee]):
         return res.scalar_one_or_none()
 
     async def get_by_id_with_relations(self, db: AsyncSession, employee_id: UUID) -> Optional[Employee]:
-        """Fetch single employee eagerly loading user, profile, department, and reporting manager."""
+        """Fetch single employee eagerly loading user, profile, user_roles, department, and reporting manager."""
         stmt = (
             select(Employee)
             .where(Employee.id == employee_id)
             .options(
                 selectinload(Employee.user).selectinload(User.profile),
+                selectinload(Employee.user).selectinload(User.user_roles).selectinload(UserRole.role),
                 selectinload(Employee.department),
                 selectinload(Employee.reporting_manager)
             )

@@ -14,7 +14,7 @@ import { useAuth } from "@hooks/useAuth";
 
 export default function Departments() {
   const { user } = useAuth();
-  const isAdmin = user?.role === "Admin";
+  const isAdmin = user?.role === "admin";
 
   // State for data listing
   const [departments, setDepartments] = useState([]);

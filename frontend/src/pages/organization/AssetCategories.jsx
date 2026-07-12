@@ -13,7 +13,7 @@ import { useAuth } from "@hooks/useAuth";
 
 export default function AssetCategories() {
   const { user } = useAuth();
-  const isAdmin = user?.role === "Admin";
+  const isAdmin = user?.role === "admin";
 
   // Listing state
   const [categories, setCategories] = useState([]);

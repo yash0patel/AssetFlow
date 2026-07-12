@@ -165,7 +165,7 @@ class EmployeeService:
     async def promote(
         self, db: AsyncSession, *, employee_id: UUID, target_role: str, department_scope_id: Optional[UUID], admin_id: UUID
     ) -> None:
-        """Promote an employee to a specialized role (Department Head or Asset Manager)."""
+        """Assign any role (Admin, Asset Manager, Department Head, Employee) to an employee."""
         emp = await employee_repo.get(db, employee_id)
         if not emp or emp.deleted_at is not None:
             raise HTTPException(
@@ -176,17 +176,34 @@ class EmployeeService:
         if emp.status != "Active":
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Cannot promote an inactive employee."
+                detail="Cannot assign roles to an inactive employee."
             )
 
-        # Get role model for 'manager'
-        stmt_role = select(Role).where(Role.name == "manager")
+        # 1. Employee / Demotion case
+        if target_role == "Employee":
+            await self.demote(db, employee_id=employee_id)
+            return
+
+        # 2. Get target role
+        role_map = {
+            "Admin": "admin",
+            "Asset Manager": "asset_manager",
+            "Department Head": "department_head"
+        }
+        db_role_name = role_map.get(target_role)
+        if not db_role_name:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid target role: {target_role}"
+            )
+
+        stmt_role = select(Role).where(Role.name == db_role_name)
         res_role = await db.execute(stmt_role)
-        manager_role = res_role.scalar_one_or_none()
-        if not manager_role:
+        target_role_model = res_role.scalar_one_or_none()
+        if not target_role_model:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Database setup error: 'manager' role not found."
+                detail=f"Database setup error: '{db_role_name}' role not found."
             )
 
         # Business Rules
@@ -201,7 +218,7 @@ class EmployeeService:
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail="Department Head must belong to their assigned department."
                 )
-            
+             
             # Update the department table's head_employee_id
             dept = await department_repo.get(db, department_scope_id)
             if not dept or dept.deleted_at is not None:
@@ -211,17 +228,17 @@ class EmployeeService:
                 )
             dept.head_employee_id = employee_id
 
-        elif target_role == "Asset Manager":
-            # Asset Manager is org-wide
-            department_scope_id = None
+        # Revoke any active specialized role (admin, department_head, asset_manager) for the user first to avoid duplication
+        stmt_roles = select(Role).where(Role.name.in_(["admin", "department_head", "asset_manager"]))
+        res_roles = await db.execute(stmt_roles)
+        specialized_role_ids = [r.id for r in res_roles.scalars().all()]
 
-        # Revoke any active manager role for the user first to avoid duplication
         stmt_revoke = (
             update(UserRole)
             .where(
                 and_(
                     UserRole.user_id == emp.user_id,
-                    UserRole.role_id == manager_role.id,
+                    UserRole.role_id.in_(specialized_role_ids),
                     UserRole.revoked_at.is_(None)
                 )
             )
@@ -229,10 +246,19 @@ class EmployeeService:
         )
         await db.execute(stmt_revoke)
 
+        # If we promoted to Asset Manager or Admin, also clear them from heading any department
+        if target_role in ("Asset Manager", "Admin"):
+            department_scope_id = None
+            # Clear head_employee_id from department if they headed one
+            heading_dept_stmt = select(Department).where(Department.head_employee_id == employee_id)
+            heading_dept_res = await db.execute(heading_dept_stmt)
+            for heading_dept in heading_dept_res.scalars().all():
+                heading_dept.head_employee_id = None
+
         # Add UserRole assignment
         user_role = UserRole(
             user_id=emp.user_id,
-            role_id=manager_role.id,
+            role_id=target_role_model.id,
             department_scope_id=department_scope_id,
             assigned_by=admin_id,
             assigned_at=utcnow()
@@ -249,23 +275,18 @@ class EmployeeService:
                 detail="Employee record not found."
             )
 
-        # Find manager role
-        stmt_role = select(Role).where(Role.name == "manager")
-        res_role = await db.execute(stmt_role)
-        manager_role = res_role.scalar_one_or_none()
-        if not manager_role:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Database setup error: 'manager' role not found."
-            )
+        # Find roles to revoke (admin, department_head, asset_manager)
+        stmt_roles = select(Role).where(Role.name.in_(["admin", "department_head", "asset_manager"]))
+        res_roles = await db.execute(stmt_roles)
+        specialized_role_ids = [r.id for r in res_roles.scalars().all()]
 
-        # Revoke the manager role
+        # Revoke the roles
         stmt_revoke = (
             update(UserRole)
             .where(
                 and_(
                     UserRole.user_id == emp.user_id,
-                    UserRole.role_id == manager_role.id,
+                    UserRole.role_id.in_(specialized_role_ids),
                     UserRole.revoked_at.is_(None)
                 )
             )

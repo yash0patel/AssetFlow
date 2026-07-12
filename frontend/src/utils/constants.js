@@ -6,7 +6,7 @@
 
 export const APP_NAME = import.meta.env.VITE_APP_NAME || "AssetFlow";
 export const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL || "http://localhost:8000/api/v1";
+  import.meta.env.VITE_API_BASE_URL || "http://localhost:8001/api/v1";
 
 // Pagination
 export const DEFAULT_PAGE_SIZE = 20;
@@ -36,10 +36,8 @@ export const ASSET_STATUS = {
 
 // User roles (mirror backend enums)
 export const USER_ROLES = {
-  SUPER_ADMIN: "super_admin",
   ADMIN: "admin",
-  MANAGER: "manager",
+  ASSET_MANAGER: "asset_manager",
+  DEPARTMENT_HEAD: "department_head",
   EMPLOYEE: "employee",
-  AUDITOR: "auditor",
-  VIEWER: "viewer",
 };

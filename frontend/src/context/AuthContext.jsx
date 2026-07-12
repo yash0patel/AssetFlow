@@ -23,9 +23,23 @@ export function AuthProvider({ children }) {
           const profile = await authService.getMe();
           setUser(profile);
         } catch (err) {
-          console.error("Failed to restore session:", err);
-          localStorage.removeItem("access_token");
-          localStorage.removeItem("refresh_token");
+          // Access token stale — try refreshing before giving up
+          const rToken = localStorage.getItem("refresh_token");
+          if (rToken) {
+            try {
+              const newAccessToken = await authService.refreshToken();
+              if (newAccessToken) {
+                const profile = await authService.getMe();
+                setUser(profile);
+              }
+            } catch (_refreshErr) {
+              localStorage.removeItem("access_token");
+              localStorage.removeItem("refresh_token");
+            }
+          } else {
+            localStorage.removeItem("access_token");
+            localStorage.removeItem("refresh_token");
+          }
         }
       }
       setIsLoading(false);

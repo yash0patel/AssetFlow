@@ -6,7 +6,6 @@
  */
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { Toaster } from "react-hot-toast";
 
 import { AuthProvider } from "@context/AuthContext";
@@ -50,10 +49,6 @@ export default function App() {
             {/* Router tree */}
             <AppRoutes />
 
-            {/* Dev tools — removed in production build */}
-            {import.meta.env.VITE_ENABLE_DEVTOOLS === "true" && (
-              <ReactQueryDevtools initialIsOpen={false} />
-            )}
           </NotificationProvider>
         </AuthProvider>
       </ThemeProvider>

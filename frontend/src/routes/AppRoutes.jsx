@@ -82,9 +82,9 @@ const router = createBrowserRouter([
           { index: true, element: <Navigate to={ROUTES.DASHBOARD} replace /> },
           { path: ROUTES.DASHBOARD, element: <Dashboard /> },
 
-          // Organization — admin/manager only
+          // Organization — admin only
           {
-            element: <RoleRoute allowedRoles={["admin", "super_admin", "manager"]} />,
+            element: <RoleRoute allowedRoles={["admin"]} />,
             children: [
               { path: ROUTES.DEPARTMENTS, element: <Departments /> },
               { path: ROUTES.EMPLOYEES, element: <Employees /> },
@@ -113,8 +113,13 @@ const router = createBrowserRouter([
 
   // Catch-all → login
   { path: "*", element: <Navigate to={ROUTES.LOGIN} replace /> },
-]);
+], {
+  future: {
+    v7_startTransition: true,
+    v7_relativeSplatPath: true,
+  }
+});
 
 export default function AppRoutes() {
-  return <RouterProvider router={router} />;
+  return <RouterProvider router={router} future={{ v7_startTransition: true }} />;
 }

@@ -11,22 +11,18 @@ from enum import Enum
 class UserRole(str, Enum):
     """User roles within the AssetFlow ERP."""
 
-    SUPER_ADMIN = "super_admin"
     ADMIN = "admin"
-    MANAGER = "manager"
+    ASSET_MANAGER = "asset_manager"
+    DEPARTMENT_HEAD = "department_head"
     EMPLOYEE = "employee"
-    AUDITOR = "auditor"
-    VIEWER = "viewer"
 
 
 # Ordered privilege levels — higher index = more privileges
 ROLE_HIERARCHY: list[UserRole] = [
-    UserRole.VIEWER,
     UserRole.EMPLOYEE,
-    UserRole.AUDITOR,
-    UserRole.MANAGER,
+    UserRole.DEPARTMENT_HEAD,
+    UserRole.ASSET_MANAGER,
     UserRole.ADMIN,
-    UserRole.SUPER_ADMIN,
 ]
 
 

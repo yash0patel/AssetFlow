@@ -45,7 +45,7 @@ class EmployeeListResponse(BaseModel):
     pages: int
 
 class RolePromotionRequest(BaseModel):
-    role: str = Field(..., pattern="^(Department Head|Asset Manager)$")
+    role: str = Field(..., pattern="^(Admin|Asset Manager|Department Head|Employee)$")
     department_scope_id: Optional[UUID] = None
 
 class UserWithoutEmployeeResponse(BaseModel):

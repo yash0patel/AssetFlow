@@ -14,7 +14,7 @@ import { useAuth } from "@hooks/useAuth";
 
 export default function Employees() {
   const { user: currentUser } = useAuth();
-  const isAdmin = currentUser?.role === "Admin";
+  const isAdmin = currentUser?.role === "admin";
 
   // Data list state
   const [employees, setEmployees] = useState([]);
@@ -206,22 +206,22 @@ export default function Employees() {
     }
   };
 
-  // Open promotion modal
+  // Open role assignment modal
   const handlePromoteClick = (emp) => {
     if (!isAdmin) {
       toast.error("Access denied. Admin role required.");
       return;
     }
     if (emp.status === "Inactive") {
-      toast.error("Cannot promote an inactive employee.");
+      toast.error("Cannot change role of an inactive employee.");
       return;
     }
     setPromotingEmp(emp);
-    setPromoteRole("Department Head");
+    setPromoteRole(emp.role || "Employee");
     setShowPromoteModal(true);
   };
 
-  // Submit role promotion
+  // Submit role update
   const handlePromoteSubmit = async (e) => {
     e.preventDefault();
     if (!promotingEmp) return;
@@ -238,28 +238,11 @@ export default function Employees() {
       }
 
       await employeeService.promoteEmployee(promotingEmp.id, payload);
-      toast.success(`${promotingEmp.name} promoted to ${promoteRole}.`);
+      toast.success(`Role updated successfully for ${promotingEmp.name}.`);
       setShowPromoteModal(false);
       fetchEmployees();
     } catch (err) {
-      toast.error(err.response?.data?.detail || "Promotion failed.");
-    }
-  };
-
-  // Demote employee
-  const handleDemoteClick = async (emp) => {
-    if (!isAdmin) {
-      toast.error("Access denied. Admin role required.");
-      return;
-    }
-    if (window.confirm(`Are you sure you want to demote ${emp.name} back to a standard Employee?`)) {
-      try {
-        await employeeService.demoteEmployee(emp.id);
-        toast.success(`${emp.name} demoted successfully.`);
-        fetchEmployees();
-      } catch (err) {
-        toast.error(err.response?.data?.detail || "Demotion failed.");
-      }
+      toast.error(err.response?.data?.detail || "Failed to update role.");
     }
   };
 
@@ -358,25 +341,14 @@ export default function Employees() {
                         >
                           Edit
                         </button>
-                        {emp.role === "Employee" ? (
-                          <button
-                            onClick={() => handlePromoteClick(emp)}
-                            disabled={isSelf}
-                            className={`${styles.actionBtn} ${styles.actionPromote}`}
-                            title={isSelf ? "Self promotion is forbidden" : ""}
-                          >
-                            Promote
-                          </button>
-                        ) : (
-                          <button
-                            onClick={() => handleDemoteClick(emp)}
-                            disabled={isSelf}
-                            className={`${styles.actionBtn} ${styles.actionDemote}`}
-                            title={isSelf ? "Self demotion is forbidden" : ""}
-                          >
-                            Demote
-                          </button>
-                        )}
+                        <button
+                          onClick={() => handlePromoteClick(emp)}
+                          disabled={isSelf}
+                          className={`${styles.actionBtn} ${styles.actionPromote}`}
+                          title={isSelf ? "Self role assignment is forbidden" : ""}
+                        >
+                          Change Role
+                        </button>
                       </td>
                     )}
                   </tr>
@@ -545,11 +517,12 @@ export default function Employees() {
       )}
 
       {/* Promote Modal */}
+      {/* Role Assignment Modal */}
       {showPromoteModal && promotingEmp && (
         <div className={styles.modalBackdrop}>
           <div className={styles.modalContent}>
             <div className={styles.modalHeader}>
-              <h3 className={styles.modalTitle}>Promote Employee: {promotingEmp.name}</h3>
+              <h3 className={styles.modalTitle}>Change Role: {promotingEmp.name}</h3>
               <button className={styles.closeBtn} onClick={() => setShowPromoteModal(false)}>
                 &times;
               </button>
@@ -557,7 +530,7 @@ export default function Employees() {
             <form onSubmit={handlePromoteSubmit}>
               <div className={styles.modalBody}>
                 <p>
-                  Promote this employee to a management role. Select the target role below.
+                  Assign a new role to this user. Select the target role below.
                 </p>
 
                 <div className={styles.formGroup}>
@@ -568,16 +541,24 @@ export default function Employees() {
                     className={styles.formSelect}
                     required
                   >
-                    <option value="Department Head">Department Head</option>
+                    <option value="Admin">Admin</option>
                     <option value="Asset Manager">Asset Manager</option>
+                    <option value="Department Head">Department Head</option>
+                    <option value="Employee">Employee</option>
                   </select>
                 </div>
 
                 {promoteRole === "Department Head" && (
                   <div style={{ marginTop: "10px", fontSize: "0.875rem" }}>
-                    <strong>Note:</strong> Promoting to Department Head will automatically assign
+                    <strong>Note:</strong> Assigning Department Head will automatically assign
                     this employee as the head of their department (
                     {promotingEmp.department_name || "None - please assign department first"}).
+                  </div>
+                )}
+
+                {promoteRole === "Employee" && (
+                  <div style={{ marginTop: "10px", fontSize: "0.875rem" }}>
+                    <strong>Note:</strong> Resetting to standard Employee will revoke all special management/admin privileges.
                   </div>
                 )}
               </div>
@@ -590,7 +571,7 @@ export default function Employees() {
                   Cancel
                 </button>
                 <button type="submit" className={`${styles.btn} ${styles.btnPrimary}`}>
-                  Promote
+                  Save Changes
                 </button>
               </div>
             </form>
@@ -599,7 +580,7 @@ export default function Employees() {
       )}
 
       <div className={styles.footerHint}>
-        Admin promotes an Employee to Department Head or Asset Manager here — this is the only place roles are assigned.
+        Admin manages employee role assignments here — assigning Admin, Asset Manager, Department Head, or Employee roles directly.
       </div>
     </div>
   );

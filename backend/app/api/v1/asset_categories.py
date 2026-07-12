@@ -20,12 +20,20 @@ from app.services.asset_category_service import asset_category_service
 
 router = APIRouter()
 
-async def require_admin_or_manager(db: AsyncSession, user: User) -> None:
+async def require_admin(db: AsyncSession, user: User) -> None:
     role_name = await user_repo.get_user_role_name(db, user.id)
-    if role_name not in ("admin", "super_admin", "manager"):
+    if role_name != "admin":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Access denied. Manager or Administrator privileges required."
+            detail="Access denied. Administrator privileges required."
+        )
+
+async def require_admin_or_manager(db: AsyncSession, user: User) -> None:
+    role_name = await user_repo.get_user_role_name(db, user.id)
+    if role_name not in ("admin", "asset_manager", "department_head"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied. Manager, Department Head, or Administrator privileges required."
         )
 
 def build_category_response(cat: AssetCategory) -> dict:
@@ -104,7 +112,7 @@ async def create_category(
     db: AsyncSession = Depends(get_db),
 ):
     """Create a new asset category."""
-    await require_admin_or_manager(db, current_user)
+    await require_admin(db, current_user)
     
     async with db.begin_nested():
         cat = await asset_category_service.create(db, obj_in=payload)
@@ -147,7 +155,7 @@ async def update_category(
     db: AsyncSession = Depends(get_db),
 ):
     """Update details of a category."""
-    await require_admin_or_manager(db, current_user)
+    await require_admin(db, current_user)
     
     async with db.begin_nested():
         cat = await asset_category_service.update(db, id=id, obj_in=payload)
@@ -168,10 +176,13 @@ async def delete_category(
     db: AsyncSession = Depends(get_db),
 ):
     """Delete a category."""
-    await require_admin_or_manager(db, current_user)
+    await require_admin(db, current_user)
     
-    async with db.begin_nested():
-        cat = await asset_category_service.delete(db, id=id)
-    await db.commit()
-    
-    return build_category_response(cat)
+    # Reload category with attributes before return
+    stmt = select(AssetCategory).where(AssetCategory.id == id).options(
+        selectinload(AssetCategory.parent_category),
+        selectinload(AssetCategory.attributes)
+    )
+    res = await db.execute(stmt)
+    db_cat = res.scalar_one_or_none()
+    return build_category_response(db_cat or cat)

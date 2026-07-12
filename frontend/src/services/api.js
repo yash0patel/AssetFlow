@@ -10,7 +10,7 @@
 
 import axios from "axios";
 
-const BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000/api/v1";
+const BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8001/api/v1";
 const TIMEOUT = Number(import.meta.env.VITE_API_TIMEOUT) || 10_000;
 
 // ── Axios instance ─────────────────────────────────────────────────────────────
@@ -41,6 +41,11 @@ api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
+
+    // Skip interceptor handling for requests that manage their own auth (e.g. refresh, restore)
+    if (originalRequest.skipInterceptor) {
+      return Promise.reject(error);
+    }
 
     // If 401 and not already retried — attempt token refresh
     if (error.response?.status === 401 && !originalRequest._retry) {

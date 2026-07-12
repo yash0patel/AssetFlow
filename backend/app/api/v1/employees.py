@@ -23,7 +23,7 @@ router = APIRouter()
 
 async def require_admin(db: AsyncSession, user: User) -> None:
     role_name = await user_repo.get_user_role_name(db, user.id)
-    if role_name not in ("admin", "super_admin"):
+    if role_name != "admin":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Access denied. Administrator privileges required."
@@ -31,32 +31,24 @@ async def require_admin(db: AsyncSession, user: User) -> None:
 
 async def require_admin_or_manager(db: AsyncSession, user: User) -> None:
     role_name = await user_repo.get_user_role_name(db, user.id)
-    if role_name not in ("admin", "super_admin", "manager"):
+    if role_name not in ("admin", "asset_manager", "department_head"):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Access denied. Manager or Administrator privileges required."
+            detail="Access denied. Manager, Department Head, or Administrator privileges required."
         )
 
-def get_employee_display_role(user: User) -> str:
-    """Determine the employee's display role based on active DB roles and scopes."""
-    active_roles = [ur for ur in user.user_roles if ur.revoked_at is None]
-    
-    # 1. Admin
-    for ur in active_roles:
-        if ur.role.name in ("admin", "super_admin"):
-            return "Admin"
-            
-    # 2. Manager
-    for ur in active_roles:
-        if ur.role.name == "manager":
-            if ur.department_scope_id is not None:
-                return "Department Head"
-            else:
-                return "Asset Manager"
-                
-    return "Employee"
+async def get_employee_display_role(db: AsyncSession, user_id: UUID) -> str:
+    """Determine the employee's display role based on active DB roles."""
+    role_name = await user_repo.get_user_role_name(db, user_id)
+    role_map = {
+        "admin": "Admin",
+        "asset_manager": "Asset Manager",
+        "department_head": "Department Head",
+        "employee": "Employee"
+    }
+    return role_map.get(role_name, "Employee")
 
-def build_employee_response(emp: Employee) -> dict:
+async def build_employee_response(db: AsyncSession, emp: Employee) -> dict:
     """Helper to convert Employee model to response dict."""
     profile = emp.user.profile
     first_name = profile.first_name if profile else ""
@@ -68,6 +60,8 @@ def build_employee_response(emp: Employee) -> dict:
         m_prof = emp.reporting_manager.user.profile
         m_last = m_prof.last_name or ""
         rep_mgr_name = f"{m_prof.first_name} {m_last}".strip()
+
+    display_role = await get_employee_display_role(db, emp.user_id)
 
     return {
         "id": emp.id,
@@ -84,7 +78,7 @@ def build_employee_response(emp: Employee) -> dict:
         "email": emp.user.email,
         "department_name": emp.department.name if emp.department else None,
         "reporting_manager_name": rep_mgr_name,
-        "role": get_employee_display_role(emp.user)
+        "role": display_role
     }
 
 @router.get("/", response_model=EmployeeListResponse)
@@ -116,7 +110,7 @@ async def list_employees(
         sort_order=sort_order
     )
 
-    items = [build_employee_response(e) for e in employees]
+    items = [await build_employee_response(db, e) for e in employees]
     pages = (total + page_size - 1) // page_size if total > 0 else 0
 
     return EmployeeListResponse(
@@ -162,7 +156,7 @@ async def create_employee(
     await db.commit()
     
     db_emp = await employee_repo.get_by_id_with_relations(db, emp.id)
-    return build_employee_response(db_emp or emp)
+    return await build_employee_response(db, db_emp or emp)
 
 @router.get("/{id}", response_model=EmployeeResponse)
 async def get_employee(
@@ -176,7 +170,7 @@ async def get_employee(
     emp = await employee_repo.get_by_id_with_relations(db, id)
     if not emp:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Employee not found.")
-    return build_employee_response(emp)
+    return await build_employee_response(db, emp)
 
 @router.put("/{id}", response_model=EmployeeResponse)
 async def update_employee(
@@ -193,7 +187,7 @@ async def update_employee(
     await db.commit()
 
     db_emp = await employee_repo.get_by_id_with_relations(db, id)
-    return build_employee_response(db_emp or emp)
+    return await build_employee_response(db, db_emp or emp)
 
 @router.post("/{id}/promote", status_code=status.HTTP_200_OK)
 async def promote_employee(

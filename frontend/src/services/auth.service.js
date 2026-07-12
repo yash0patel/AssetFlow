@@ -41,7 +41,7 @@ const authService = {
    * Get currently authenticated user details.
    */
   async getMe() {
-    const response = await api.get("/auth/me");
+    const response = await api.get("/auth/me", { skipInterceptor: true });
     return response.data;
   },
 
@@ -53,7 +53,7 @@ const authService = {
     if (!rToken) return null;
 
     try {
-      const response = await api.post("/auth/refresh", { refresh_token: rToken });
+      const response = await api.post("/auth/refresh", { refresh_token: rToken }, { skipInterceptor: true });
       const { access_token, refresh_token: newRefreshToken } = response.data;
       
       localStorage.setItem("access_token", access_token);

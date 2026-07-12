@@ -23,7 +23,7 @@ router = APIRouter()
 
 async def require_admin(db: AsyncSession, user: User) -> None:
     role_name = await user_repo.get_user_role_name(db, user.id)
-    if role_name not in ("admin", "super_admin"):
+    if role_name != "admin":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Access denied. Administrator privileges required."
@@ -31,10 +31,10 @@ async def require_admin(db: AsyncSession, user: User) -> None:
 
 async def require_admin_or_manager(db: AsyncSession, user: User) -> None:
     role_name = await user_repo.get_user_role_name(db, user.id)
-    if role_name not in ("admin", "super_admin", "manager"):
+    if role_name not in ("admin", "asset_manager", "department_head"):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Access denied. Manager or Administrator privileges required."
+            detail="Access denied. Manager, Department Head, or Administrator privileges required."
         )
 
 def build_response_dict(dept: Department) -> dict:
@@ -176,9 +176,9 @@ async def delete_department(
     
     async with db.begin_nested():
         dept = await department_service.delete(db, id=id)
-    await db.commit()
-    
-    return build_response_dict(dept)
+    # Reload with relations before return to prevent lazy loading
+    db_dept = await department_repo.get_departments_with_relations(db, id)
+    return build_response_dict(db_dept or dept)
 
 # Eager-load extension helper for reload
 async def _get_dept_with_relations(self, db: AsyncSession, id: UUID) -> Optional[Department]:

@@ -53,7 +53,9 @@ export default function Register() {
       const { user, access_token, refresh_token } = response;
       login(user, access_token, refresh_token);
       toast.success("Account created! Welcome to AssetFlow.");
-      navigate(ROUTES.DASHBOARD, { replace: true });
+      setTimeout(() => {
+        navigate(ROUTES.DASHBOARD, { replace: true });
+      }, 150);
     } catch (err) {
       const errorMsg = err.response?.data?.detail || "Registration failed. Please try again.";
       toast.error(errorMsg);
@@ -69,9 +71,6 @@ export default function Register() {
         <div className={styles.cardHeader}>AssetFlow – create account</div>
 
         <div className={styles.cardBody}>
-          {/* Avatar */}
-          <div className={styles.avatar}>AF</div>
-
           {/* Role badge — clarifies no role selection */}
           <span className={styles.roleBadge}>Employee account</span>
 

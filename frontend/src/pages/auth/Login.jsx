@@ -42,7 +42,9 @@ export default function Login() {
       const { user, access_token, refresh_token } = response;
       login(user, access_token, refresh_token);
       toast.success(`Welcome back, ${user.name.split(" ")[0]}!`);
-      navigate(ROUTES.DASHBOARD, { replace: true });
+      setTimeout(() => {
+        navigate(ROUTES.DASHBOARD, { replace: true });
+      }, 150);
     } catch (err) {
       const errorMsg = err.response?.data?.detail || "Invalid email or password";
       toast.error(errorMsg);
@@ -58,9 +60,6 @@ export default function Login() {
         <div className={styles.cardHeader}>AssetFlow – login</div>
 
         <div className={styles.cardBody}>
-          {/* Avatar */}
-          <div className={styles.avatar}>AF</div>
-
           {/* Login form */}
           <form className={styles.form} onSubmit={handleSubmit(onSubmit)} noValidate>
             {/* Email */}

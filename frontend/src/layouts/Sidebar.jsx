@@ -14,8 +14,8 @@ export default function Sidebar() {
 
   const navItems = [
     { label: "Dashboard", path: ROUTES.DASHBOARD },
-    // Temporarily linking Organization setup to DEPARTMENTS route for screen 3
-    { label: "Organization setup", path: ROUTES.DEPARTMENTS },
+    // Only show Organization setup to Admin
+    ...(user?.role === "admin" ? [{ label: "Organization setup", path: ROUTES.DEPARTMENTS }] : []),
     { label: "Assets", path: ROUTES.ASSETS },
     { label: "Allocation & Transfer", path: ROUTES.ALLOCATIONS },
     { label: "Resource Booking", path: ROUTES.BOOKINGS },
@@ -24,6 +24,14 @@ export default function Sidebar() {
     { label: "Reports", path: ROUTES.REPORTS },
     { label: "Notifications", path: ROUTES.NOTIFICATIONS },
   ];
+
+  const displayRoleMap = {
+    admin: "Admin",
+    asset_manager: "Asset Manager",
+    department_head: "Department Head",
+    employee: "Employee"
+  };
+  const displayRole = displayRoleMap[user?.role] || user?.role || "Employee";
 
   return (
     <aside className={styles.sidebar}>
@@ -46,7 +54,7 @@ export default function Sidebar() {
       <div className={styles.userSection}>
         <div className={styles.userInfo}>
           <span className={styles.userName}>{user?.name || "User"}</span>
-          <span className={styles.userRole}>{user?.role || "Employee"}</span>
+          <span className={styles.userRole}>{displayRole}</span>
         </div>
         <button className={styles.logoutBtn} onClick={logout}>
           Logout

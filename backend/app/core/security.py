@@ -5,6 +5,7 @@ JWT token creation/verification and password hashing utilities.
 No business logic — pure infrastructure helpers.
 """
 
+import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Optional
 
@@ -52,6 +53,7 @@ def create_access_token(
         "sub": str(subject),
         "exp": expire,
         "iat": datetime.now(timezone.utc),
+        "jti": str(uuid.uuid4()),  # unique nonce prevents session hash collisions
         "type": "access",
     }
     if extra_claims:
@@ -72,6 +74,7 @@ def create_refresh_token(
         "sub": str(subject),
         "exp": expire,
         "iat": datetime.now(timezone.utc),
+        "jti": str(uuid.uuid4()),  # unique nonce prevents session hash collisions
         "type": "refresh",
     }
     return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
