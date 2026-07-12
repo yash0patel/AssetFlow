@@ -371,7 +371,8 @@ AssetFlow/
 
 | Name | Role |
 |---|---|
-| Yash Patel | Full-Stack Development |
+| Yash Patel | Backend Development |
+| Yash Soni | Frontend Development |
 
 ---
 
