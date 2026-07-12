@@ -345,6 +345,12 @@ export default function Bookings() {
                 </div>
               )}
 
+              {draftConflict === "Invalid time range" && (
+                <div style={{ padding: "10px", backgroundColor: "rgba(239,68,68,0.1)", color: "var(--color-error)", borderRadius: "var(--radius-md)", fontSize: "0.875rem" }}>
+                  <strong>Error:</strong> End time must be after start time.
+                </div>
+              )}
+
               <div className={styles.modalActions}>
                 <button
                   type="button"
