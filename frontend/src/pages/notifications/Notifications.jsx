@@ -4,85 +4,88 @@
  * Screen 10: Activity Logs & Notifications.
  */
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import notificationService from "@services/notification.service";
 import styles from "./notifications.module.css";
+import dayjs from "dayjs";
+import relativeTime from "dayjs/plugin/relativeTime";
+
+dayjs.extend(relativeTime);
 
 const TABS = ["All", "Alerts", "Approvals", "Bookings"];
 
-// Mock data strictly following user's prompt mockup
-const INITIAL_NOTIFICATIONS = [
-  {
-    id: "n1",
-    message: "Laptop AF-0014 assigned to Priya shah",
-    time: "2m ago",
-    type: "Approvals", // generic admin action
-    read: false,
-  },
-  {
-    id: "n2",
-    message: "Maintenance request AF-0055 approved",
-    time: "18m ago",
-    type: "Approvals",
-    read: false,
-  },
-  {
-    id: "n3",
-    message: "Booking confirmed : Room B2 : 2:00 to 3:00 PM",
-    time: "1h ago",
-    type: "Bookings",
-    read: false,
-  },
-  {
-    id: "n4",
-    message: "Transfer approved : AF-0033 to facilities dept",
-    time: "3h ago",
-    type: "Approvals",
-    read: false,
-  },
-  {
-    id: "n5",
-    message: "Overdue return : AF-0021 was due 3 days ago",
-    time: "1d ago",
-    type: "Alerts",
-    read: false,
-  },
-  {
-    id: "n6",
-    message: "audit discrepancy flagged : AF-0088 damaged",
-    time: "2d ago",
-    type: "Alerts",
-    read: false,
-  },
-];
+const getCategoryParam = (tab) => {
+  if (tab === "Alerts") return "Alert";
+  if (tab === "Approvals") return "Approval";
+  if (tab === "Bookings") return "Booking";
+  return undefined;
+};
 
-const getTypeClass = (type) => {
-  switch (type) {
-    case "Alerts": return styles.typeAlert;
-    case "Approvals": return styles.typeApproval;
-    case "Bookings": return styles.typeBooking;
+const getTypeClass = (category) => {
+  switch (category) {
+    case "Alert": return styles.typeAlert;
+    case "Approval": return styles.typeApproval;
+    case "Booking": return styles.typeBooking;
     default: return "";
   }
 };
 
 export default function Notifications() {
   const [activeTab, setActiveTab] = useState("All");
-  const [notifications, setNotifications] = useState(INITIAL_NOTIFICATIONS);
+  const [notifications, setNotifications] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const filteredNotifications = notifications.filter(
-    (n) => activeTab === "All" || n.type === activeTab
-  );
+  const loadNotifications = async () => {
+    setLoading(true);
+    try {
+      const category = getCategoryParam(activeTab);
+      const data = await notificationService.listNotifications({
+        category,
+        page_size: 100,
+      });
+      setNotifications(data.items || []);
+    } catch (err) {
+      console.error("Failed to load notifications:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  const toggleRead = (id) => {
-    setNotifications((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, read: !n.read } : n))
-    );
+  useEffect(() => {
+    loadNotifications();
+  }, [activeTab]);
+
+  const toggleRead = async (id) => {
+    try {
+      await notificationService.markRead(id);
+      setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n));
+    } catch (err) {
+      console.error("Failed to mark notification read:", err);
+    }
+  };
+
+  const handleMarkAllRead = async () => {
+    try {
+      await notificationService.markAllRead();
+      setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+    } catch (err) {
+      console.error("Failed to mark all read:", err);
+    }
   };
 
   return (
     <div className={styles.container}>
-      <h1 style={{ fontSize: "1.25rem", fontWeight: 600, color: "var(--color-text)", marginBottom: "var(--space-2)" }}>
-        Activity Logs & Notifications
-      </h1>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "var(--space-4)" }}>
+        <h1 style={{ fontSize: "1.25rem", fontWeight: 600, color: "var(--color-text)", margin: 0 }}>
+          Activity Logs & Notifications
+        </h1>
+        <button 
+          onClick={handleMarkAllRead} 
+          style={{ background: "none", border: "none", color: "var(--color-primary-600)", cursor: "pointer", fontSize: "0.875rem" }}
+        >
+          Mark all as read
+        </button>
+      </div>
 
       {/* ── Tabs ─────────────────────────────────────────────────────────── */}
       <div className={styles.tabs}>
@@ -99,22 +102,27 @@ export default function Notifications() {
 
       {/* ── List ─────────────────────────────────────────────────────────── */}
       <div className={styles.list}>
-        {filteredNotifications.length > 0 ? (
-          filteredNotifications.map((notif) => (
-            <div key={notif.id} className={`${styles.item} ${getTypeClass(notif.type)}`}>
+        {loading ? (
+          <div style={{ padding: "var(--space-6)", textAlign: "center", color: "var(--color-text-subtle)" }}>
+            Loading notifications...
+          </div>
+        ) : notifications.length > 0 ? (
+          notifications.map((notif) => (
+            <div key={notif.id} className={`${styles.item} ${getTypeClass(notif.category)}`}>
               <div className={styles.itemLeft}>
                 <input
                   type="checkbox"
                   className={styles.readCheckbox}
-                  checked={notif.read}
+                  checked={notif.is_read}
                   onChange={() => toggleRead(notif.id)}
-                  title="Mark as read/unread"
+                  disabled={notif.is_read}
+                  title="Mark as read"
                 />
-                <span className={`${styles.message} ${!notif.read ? styles.messageUnread : ""}`}>
+                <span className={`${styles.message} ${!notif.is_read ? styles.messageUnread : ""}`}>
                   {notif.message}
                 </span>
               </div>
-              <span className={styles.time}>{notif.time}</span>
+              <span className={styles.time}>{dayjs(notif.created_at).fromNow()}</span>
             </div>
           ))
         ) : (

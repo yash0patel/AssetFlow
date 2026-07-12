@@ -131,11 +131,24 @@ def create_application() -> FastAPI:
     app.add_exception_handler(Exception, unhandled_exception_handler)
 
     # ── Routers ───────────────────────────────────────────────────────────────
-    from app.api.v1 import auth, departments, asset_categories, employees
+    from app.api.v1 import (
+        auth, departments, asset_categories, employees,
+        assets, allocations, bookings, maintenance, audits,
+        dashboard, notifications, reports, activity_logs,
+    )
     app.include_router(auth.router, prefix=API_V1_PREFIX + "/auth", tags=["Auth"])
     app.include_router(departments.router, prefix=API_V1_PREFIX + "/departments", tags=["Departments"])
     app.include_router(asset_categories.router, prefix=API_V1_PREFIX + "/asset-categories", tags=["Asset Categories"])
     app.include_router(employees.router, prefix=API_V1_PREFIX + "/employees", tags=["Employees"])
+    app.include_router(assets.router, prefix=API_V1_PREFIX + "/assets", tags=["Assets"])
+    app.include_router(allocations.router, prefix=API_V1_PREFIX + "/allocations", tags=["Allocations"])
+    app.include_router(bookings.router, prefix=API_V1_PREFIX + "/bookings", tags=["Bookings"])
+    app.include_router(maintenance.router, prefix=API_V1_PREFIX + "/maintenance", tags=["Maintenance"])
+    app.include_router(audits.router, prefix=API_V1_PREFIX + "/audits", tags=["Audits"])
+    app.include_router(dashboard.router, prefix=API_V1_PREFIX + "/dashboard", tags=["Dashboard"])
+    app.include_router(notifications.router, prefix=API_V1_PREFIX + "/notifications", tags=["Notifications"])
+    app.include_router(reports.router, prefix=API_V1_PREFIX + "/reports", tags=["Reports"])
+    app.include_router(activity_logs.router, prefix=API_V1_PREFIX + "/activity-logs", tags=["Activity Logs"])
 
     # ── Health check ──────────────────────────────────────────────────────────
     @app.get("/health", tags=["Health"], summary="Health check")

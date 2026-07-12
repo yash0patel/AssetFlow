@@ -2,33 +2,54 @@
  * pages/dashboard/Dashboard.jsx
  * ────────────────────────────
  * Dashboard providing a real-time operational snapshot.
- * Uses mock data based on the backend data models.
+ * Uses real data from the backend API.
  */
 
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ROUTES } from "@routes/routeConstants";
+import dashboardService from "@services/dashboard.service";
 import styles from "./dashboard.module.css";
-
-// ── Mock Data ──────────────────────────────────────────────────────────────────
-const MOCK_KPIS = [
-  { label: "Available", value: 128 },
-  { label: "Allocated", value: 76 },
-  { label: "Under Maintenance", value: 4 }, // Aligned with asset_status 'Under Maintenance'
-  { label: "Active Bookings", value: 9 },
-  { label: "Pending Transfers", value: 3 },
-  { label: "Upcoming returns", value: 12 },
-];
-
-const MOCK_OVERDUE_COUNT = 3;
-
-const MOCK_ACTIVITIES = [
-  "Laptop AF-0114 - allocated to Priya shah - IT dept",
-  "Room B2 - booking confirmed - 2:00 to 3:00 PM",
-  "Projector AF-0062 - maintenance resolved",
-];
 
 export default function Dashboard() {
   const navigate = useNavigate();
+  const [kpis, setKpis] = useState(null);
+  const [overdueCount, setOverdueCount] = useState(0);
+  const [activities, setActivities] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function loadDashboard() {
+      try {
+        const [kpiData, overdueData, activityData] = await Promise.all([
+          dashboardService.getKpis(),
+          dashboardService.getOverdueAllocations(),
+          dashboardService.getRecentActivity(),
+        ]);
+        setKpis(kpiData);
+        setOverdueCount(kpiData.overdue_returns || overdueData.length);
+        setActivities(activityData.map(act => `${act.actor} - ${act.action} - ${act.entity_type} (${act.description})`));
+      } catch (err) {
+        console.error("Error loading dashboard data:", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadDashboard();
+  }, []);
+
+  if (loading) {
+    return <div className={styles.container}>Loading dashboard...</div>;
+  }
+
+  const kpiList = [
+    { label: "Available", value: kpis?.assets_available || 0 },
+    { label: "Allocated", value: kpis?.assets_allocated || 0 },
+    { label: "Under Maintenance", value: kpis?.assets_under_maintenance || 0 },
+    { label: "Active Bookings", value: kpis?.active_bookings || 0 },
+    { label: "Pending Transfers", value: kpis?.pending_transfers || 0 },
+    { label: "Upcoming returns", value: kpis?.upcoming_returns || 0 },
+  ];
 
   return (
     <div className={styles.container}>
@@ -38,7 +59,7 @@ export default function Dashboard() {
 
         {/* KPI Grid */}
         <div className={styles.kpiGrid}>
-          {MOCK_KPIS.map((kpi, idx) => (
+          {kpiList.map((kpi, idx) => (
             <div key={idx} className={styles.kpiCard}>
               <span className={styles.kpiLabel}>{kpi.label}</span>
               <span className={styles.kpiValue}>{kpi.value}</span>
@@ -47,9 +68,9 @@ export default function Dashboard() {
         </div>
 
         {/* Overdue Banner */}
-        {MOCK_OVERDUE_COUNT > 0 && (
+        {overdueCount > 0 && (
           <div className={styles.overdueBanner}>
-            {MOCK_OVERDUE_COUNT} assets overdue for return - flagged for follow-up
+            {overdueCount} assets overdue for return - flagged for follow-up
           </div>
         )}
 
@@ -80,11 +101,15 @@ export default function Dashboard() {
       <section className={styles.section}>
         <h2 className={styles.sectionTitle}>Recent Activity</h2>
         <div className={styles.activityList}>
-          {MOCK_ACTIVITIES.map((activity, idx) => (
-            <div key={idx} className={styles.activityItem}>
-              {activity}
-            </div>
-          ))}
+          {activities.length > 0 ? (
+            activities.map((activity, idx) => (
+              <div key={idx} className={styles.activityItem}>
+                {activity}
+              </div>
+            ))
+          ) : (
+            <div className={styles.activityItem}>No recent activities recorded.</div>
+          )}
         </div>
       </section>
     </div>

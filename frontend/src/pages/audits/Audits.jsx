@@ -4,73 +4,152 @@
  * Screen 8: Asset Audit Screen.
  */
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import toast from "react-hot-toast";
-import { MOCK_ACTIVE_AUDIT } from "./mockAudits";
+import auditService from "@services/audit.service";
+import assetService from "@services/asset.service";
+import departmentService from "@services/department.service";
+import employeeService from "@services/employee.service";
 import styles from "./audit.module.css";
 
 export default function Audits() {
-  const [cycle, setCycle] = useState(MOCK_ACTIVE_AUDIT);
-  const [isCycleActive, setIsCycleActive] = useState(true);
+  const [cycle, setCycle] = useState(null);
+  const [items, setItems] = useState([]);
+  const [isCycleActive, setIsCycleActive] = useState(false);
+  const [loading, setLoading] = useState(true);
   
+  // Options for creation
+  const [departments, setDepartments] = useState([]);
+  const [locations, setLocations] = useState([]);
+  const [employees, setEmployees] = useState([]);
+
   // State for new cycle modal
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newTitle, setNewTitle] = useState("");
-  const [newDateRange, setNewDateRange] = useState("");
-  const [newAuditors, setNewAuditors] = useState("");
+  const [newStartDate, setNewStartDate] = useState("");
+  const [newEndDate, setNewEndDate] = useState("");
+  const [scopeDept, setScopeDept] = useState("");
+  const [scopeLoc, setScopeLoc] = useState("");
+  const [selectedAuditors, setSelectedAuditors] = useState([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleVerification = (assetId, status) => {
-    if (!isCycleActive) return;
-    
-    setCycle(prev => ({
-      ...prev,
-      assets: prev.assets.map(a => 
-        a.id === assetId ? { ...a, verification: status } : a
-      )
-    }));
+  const loadActiveCycle = async () => {
+    setLoading(true);
+    try {
+      const data = await auditService.listCycles({ status: "In Progress" });
+      const active = data.items?.[0] || null;
+      setCycle(active);
+      setIsCycleActive(!!active);
+
+      if (active) {
+        const itemsData = await auditService.getCycleItems(active.id);
+        setItems(itemsData);
+      }
+    } catch (err) {
+      console.error("Error loading active audit cycle:", err);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleCloseCycle = () => {
-    if (cycle.assets.some(a => !a.verification)) {
+  const loadFormOptions = async () => {
+    try {
+      const [deptData, locData, empData] = await Promise.all([
+        departmentService.listDepartments(),
+        assetService.listLocations(),
+        employeeService.listEmployees(),
+      ]);
+      setDepartments(deptData.items || deptData);
+      setLocations(locData);
+      setEmployees(empData.items || empData);
+    } catch (err) {
+      console.error("Error loading form options for audits:", err);
+    }
+  };
+
+  useEffect(() => {
+    loadActiveCycle();
+    loadFormOptions();
+  }, []);
+
+  const handleVerification = async (itemId, status) => {
+    if (!isCycleActive || !cycle) return;
+    
+    try {
+      await auditService.verifyItem(cycle.id, itemId, {
+        verification_status: status,
+        remarks: "Verified via Audit UI",
+      });
+      // Optimistic or simple refresh
+      setItems(prev => prev.map(a => a.id === itemId ? { ...a, verification_status: status } : a));
+      toast.success(`Asset marked as ${status}.`);
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Failed to verify item.");
+    }
+  };
+
+  const handleCloseCycle = async () => {
+    if (!cycle) return;
+    if (items.some(a => a.verification_status === "Pending")) {
       if (!window.confirm("Some assets are not yet verified. Close anyway?")) {
         return;
       }
     }
     
-    setIsCycleActive(false);
-    toast.success("Audit cycle closed successfully. Discrepancy report generated.");
+    try {
+      await auditService.closeCycle(cycle.id);
+      setIsCycleActive(false);
+      setCycle(null);
+      setItems([]);
+      toast.success("Audit cycle closed successfully. Discrepancy report generated.");
+      await loadActiveCycle();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Failed to close cycle.");
+    }
   };
 
-  const handleCreateCycle = (e) => {
+  const handleCreateCycle = async (e) => {
     e.preventDefault();
-    if (!newTitle.trim()) {
-      toast.error("Please provide an audit title/scope.");
+    if (!newTitle.trim() || !newStartDate || !newEndDate) {
+      toast.error("Please provide audit title, start, and end dates.");
       return;
     }
     
-    setCycle({
-      id: `aud${Date.now()}`,
-      title: newTitle,
-      date_range: newDateRange || "Not specified",
-      auditors: newAuditors || "Unassigned",
-      assets: [
-        // Inject some random unverified assets for the new cycle mock
-        { id: "a10", tag: "AF-1011", name: "Desk phone", location: "HQ Floor 2", verification: null },
-        { id: "a11", tag: "AF-1012", name: "MacBook Pro", location: "HQ Floor 2", verification: null },
-      ]
-    });
-    
-    setIsCycleActive(true);
-    setIsModalOpen(false);
-    toast.success("New audit cycle started.");
-    
-    // Reset form
-    setNewTitle("");
-    setNewDateRange("");
-    setNewAuditors("");
+    setIsSubmitting(true);
+    try {
+      await auditService.createCycle({
+        cycle_name: newTitle,
+        start_date: newStartDate,
+        end_date: newEndDate,
+        scope_department_id: scopeDept || null,
+        scope_location_id: scopeLoc || null,
+        auditor_ids: selectedAuditors,
+      });
+
+      toast.success("New audit cycle started.");
+      setIsModalOpen(false);
+      
+      // Reset form
+      setNewTitle("");
+      setNewStartDate("");
+      setNewEndDate("");
+      setScopeDept("");
+      setScopeLoc("");
+      setSelectedAuditors([]);
+
+      await loadActiveCycle();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Failed to start audit cycle.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const flaggedCount = cycle.assets.filter(a => a.verification === "Missing" || a.verification === "Damaged").length;
+  const flaggedCount = items.filter(a => a.verification_status === "Missing" || a.verification_status === "Damaged").length;
+
+  if (loading && !cycle) {
+    return <div className={styles.container}>Loading audit data...</div>;
+  }
 
   return (
     <div className={styles.container}>
@@ -83,12 +162,17 @@ export default function Audits() {
         )}
       </div>
 
-      {isCycleActive ? (
+      {isCycleActive && cycle ? (
         <>
           {/* ── Cycle Info Card ────────────────────────────────────────────── */}
           <div className={styles.cycleCard}>
-            <span className={styles.cycleTitle}>{cycle.title} - {cycle.date_range}</span>
-            <span className={styles.cycleMeta}>Auditors: {cycle.auditors}</span>
+            <span className={styles.cycleTitle}>{cycle.cycle_name}</span>
+            <span className={styles.cycleMeta}>
+              Target: {cycle.scope_department_name || "All Departments"} | {cycle.scope_location_name || "All Locations"}
+            </span>
+            <span className={styles.cycleMeta}>
+              Timeline: {new Date(cycle.start_date).toLocaleDateString()} to {new Date(cycle.end_date).toLocaleDateString()}
+            </span>
           </div>
 
           {/* ── Asset Verification Table ───────────────────────────────────── */}
@@ -102,29 +186,29 @@ export default function Audits() {
                 </tr>
               </thead>
               <tbody>
-                {cycle.assets.map((asset) => (
-                  <tr key={asset.id}>
+                {items.map((item) => (
+                  <tr key={item.id}>
                     <td>
-                      <span className={styles.assetTag}>{asset.tag}</span> {asset.name}
+                      <span className={styles.assetTag}>{item.asset_tag}</span> {item.asset_name}
                     </td>
-                    <td>{asset.location}</td>
+                    <td>{item.remarks || "Assigned location"}</td>
                     <td style={{ textAlign: "center" }}>
                       <div className={styles.toggleGroup}>
                         <button 
-                          className={`${styles.toggleBtn} ${asset.verification === "Verified" ? styles.toggleVerifiedActive : ""}`}
-                          onClick={() => handleVerification(asset.id, "Verified")}
+                          className={`${styles.toggleBtn} ${item.verification_status === "Verified" ? styles.toggleVerifiedActive : ""}`}
+                          onClick={() => handleVerification(item.id, "Verified")}
                         >
                           Verified
                         </button>
                         <button 
-                          className={`${styles.toggleBtn} ${asset.verification === "Missing" ? styles.toggleMissingActive : ""}`}
-                          onClick={() => handleVerification(asset.id, "Missing")}
+                          className={`${styles.toggleBtn} ${item.verification_status === "Missing" ? styles.toggleMissingActive : ""}`}
+                          onClick={() => handleVerification(item.id, "Missing")}
                         >
                           Missing
                         </button>
                         <button 
-                          className={`${styles.toggleBtn} ${asset.verification === "Damaged" ? styles.toggleDamagedActive : ""}`}
-                          onClick={() => handleVerification(asset.id, "Damaged")}
+                          className={`${styles.toggleBtn} ${item.verification_status === "Damaged" ? styles.toggleDamagedActive : ""}`}
+                          onClick={() => handleVerification(item.id, "Damaged")}
                         >
                           Damaged
                         </button>
@@ -140,14 +224,11 @@ export default function Audits() {
           {flaggedCount > 0 && (
             <div className={styles.discrepancyBanner}>
               <span>{flaggedCount} assets flagged - discrepancy report generated automatically</span>
-              <button className={styles.reportLink} onClick={() => toast("Opening report... (Mock)")}>
-                View Report
-              </button>
             </div>
           )}
 
           {/* ── Actions ────────────────────────────────────────────────────── */}
-          <div style={{ marginTop: "var(--space-2)" }}>
+          <div style={{ marginTop: "var(--space-4)" }}>
             <button className={styles.primaryBtn} style={{ backgroundColor: "#1e3a5f" }} onClick={handleCloseCycle}>
               Close audit cycle
             </button>
@@ -177,24 +258,74 @@ export default function Audits() {
                 />
               </div>
 
-              <div className={styles.fieldGroup}>
-                <label className={styles.fieldLabel}>Date Range</label>
-                <input
-                  className={styles.input}
-                  placeholder="e.g. 1-15 Nov"
-                  value={newDateRange}
-                  onChange={(e) => setNewDateRange(e.target.value)}
-                />
+              <div className={styles.twoCol}>
+                <div className={styles.fieldGroup}>
+                  <label className={styles.fieldLabel}>Start Date</label>
+                  <input
+                    className={styles.input}
+                    type="date"
+                    value={newStartDate}
+                    onChange={(e) => setNewStartDate(e.target.value)}
+                  />
+                </div>
+                <div className={styles.fieldGroup}>
+                  <label className={styles.fieldLabel}>End Date</label>
+                  <input
+                    className={styles.input}
+                    type="date"
+                    value={newEndDate}
+                    onChange={(e) => setNewEndDate(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div className={styles.twoCol}>
+                <div className={styles.fieldGroup}>
+                  <label className={styles.fieldLabel}>Department Scope</label>
+                  <select 
+                    className={styles.select}
+                    value={scopeDept}
+                    onChange={(e) => setScopeDept(e.target.value)}
+                  >
+                    <option value="">All Departments</option>
+                    {departments.map(d => (
+                      <option key={d.id} value={d.id}>{d.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className={styles.fieldGroup}>
+                  <label className={styles.fieldLabel}>Location Scope</label>
+                  <select 
+                    className={styles.select}
+                    value={scopeLoc}
+                    onChange={(e) => setScopeLoc(e.target.value)}
+                  >
+                    <option value="">All Locations</option>
+                    {locations.map(l => (
+                      <option key={l.id} value={l.id}>{l.name}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
               
               <div className={styles.fieldGroup}>
-                <label className={styles.fieldLabel}>Assigned Auditors</label>
-                <input
-                  className={styles.input}
-                  placeholder="e.g. J. Doe, S. Smith"
-                  value={newAuditors}
-                  onChange={(e) => setNewAuditors(e.target.value)}
-                />
+                <label className={styles.fieldLabel}>Select Auditors</label>
+                <select 
+                  className={styles.select} 
+                  multiple
+                  style={{ height: "100px" }}
+                  value={selectedAuditors} 
+                  onChange={(e) => {
+                    const options = [...e.target.options];
+                    const selected = options.filter(o => o.selected).map(o => o.value);
+                    setSelectedAuditors(selected);
+                  }}
+                >
+                  {employees.map(emp => (
+                    <option key={emp.id} value={emp.id}>{emp.name}</option>
+                  ))}
+                </select>
+                <span style={{ fontSize: "0.75rem", color: "var(--color-text-subtle)" }}>Hold Ctrl/Cmd to select multiple.</span>
               </div>
 
               <div className={styles.modalActions}>
@@ -208,8 +339,9 @@ export default function Audits() {
                 <button
                   type="submit"
                   className={styles.primaryBtn}
+                  disabled={isSubmitting}
                 >
-                  Create Cycle
+                  {isSubmitting ? "Starting..." : "Create Cycle"}
                 </button>
               </div>
             </form>

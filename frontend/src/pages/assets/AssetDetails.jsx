@@ -4,10 +4,12 @@
  * Screen 4C: Per-asset detail view with allocation & maintenance history.
  */
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ROUTES } from "@routes/routeConstants";
-import { MOCK_ASSETS } from "./mockAssets";
+import assetService from "@services/asset.service";
+import allocationService from "@services/allocation.service";
+import maintenanceService from "@services/maintenance.service";
 import styles from "./asset.module.css";
 
 // ── Status badge colour mapping ────────────────────────────────────────────────
@@ -28,7 +30,35 @@ export default function AssetDetails() {
   const navigate     = useNavigate();
   const [activeTab, setActiveTab] = useState(0);
 
-  const asset = MOCK_ASSETS.find((a) => a.id === id);
+  const [asset, setAsset] = useState(null);
+  const [allocations, setAllocations] = useState([]);
+  const [maintenance, setMaintenance] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function loadDetails() {
+      setLoading(true);
+      try {
+        const [assetData, allocData, maintData] = await Promise.all([
+          assetService.getAsset(id),
+          allocationService.listAllocations({ asset_id: id }),
+          maintenanceService.listMaintenanceRequests({ asset_id: id }),
+        ]);
+        setAsset(assetData);
+        setAllocations(allocData.items || []);
+        setMaintenance(maintData.items || []);
+      } catch (err) {
+        console.error("Error loading asset details:", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadDetails();
+  }, [id]);
+
+  if (loading) {
+    return <div className={styles.container}>Loading asset details...</div>;
+  }
 
   if (!asset) {
     return (
@@ -62,7 +92,7 @@ export default function AssetDetails() {
         <div className={styles.detailGrid}>
           <div className={styles.detailItem}>
             <span className={styles.detailItemLabel}>Category</span>
-            <span className={styles.detailItemValue}>{asset.category}</span>
+            <span className={styles.detailItemValue}>{asset.category_name}</span>
           </div>
           <div className={styles.detailItem}>
             <span className={styles.detailItemLabel}>Condition</span>
@@ -74,11 +104,11 @@ export default function AssetDetails() {
           </div>
           <div className={styles.detailItem}>
             <span className={styles.detailItemLabel}>Location</span>
-            <span className={styles.detailItemValue}>{asset.location}</span>
+            <span className={styles.detailItemValue}>{asset.location_name || "—"}</span>
           </div>
           <div className={styles.detailItem}>
             <span className={styles.detailItemLabel}>Department</span>
-            <span className={styles.detailItemValue}>{asset.department}</span>
+            <span className={styles.detailItemValue}>{asset.department_name || "—"}</span>
           </div>
           <div className={styles.detailItem}>
             <span className={styles.detailItemLabel}>Acquisition Date</span>
@@ -88,7 +118,7 @@ export default function AssetDetails() {
             <span className={styles.detailItemLabel}>Acquisition Cost</span>
             <span className={styles.detailItemValue}>
               {asset.acquisition_cost
-                ? `₹${asset.acquisition_cost.toLocaleString("en-IN")}`
+                ? `₹${Number(asset.acquisition_cost).toLocaleString("en-IN")}`
                 : "—"}
             </span>
           </div>
@@ -124,19 +154,21 @@ export default function AssetDetails() {
           <table className={styles.table}>
             <thead>
               <tr>
-                <th>Employee</th>
+                <th>Target</th>
                 <th>Allocation Date</th>
                 <th>Expected Return</th>
                 <th>Status</th>
               </tr>
             </thead>
             <tbody>
-              {asset.allocation_history.length > 0 ? (
-                asset.allocation_history.map((h, i) => (
+              {allocations.length > 0 ? (
+                allocations.map((h, i) => (
                   <tr key={i}>
-                    <td className={styles.assetName}>{h.employee}</td>
-                    <td>{h.date}</td>
-                    <td>{h.return_date || "—"}</td>
+                    <td className={styles.assetName}>
+                      {h.allocated_to_employee_name || h.allocated_to_department_name}
+                    </td>
+                    <td>{new Date(h.allocation_date).toLocaleDateString()}</td>
+                    <td>{h.expected_return_date || "—"}</td>
                     <td>
                       <span
                         className={`${styles.badge} ${
@@ -173,12 +205,12 @@ export default function AssetDetails() {
               </tr>
             </thead>
             <tbody>
-              {asset.maintenance_history.length > 0 ? (
-                asset.maintenance_history.map((h, i) => (
+              {maintenance.length > 0 ? (
+                maintenance.map((h, i) => (
                   <tr key={i}>
-                    <td>{h.date}</td>
-                    <td className={styles.assetName}>{h.issue}</td>
-                    <td>{h.technician}</td>
+                    <td>{new Date(h.created_at).toLocaleDateString()}</td>
+                    <td className={styles.assetName}>{h.issue_description}</td>
+                    <td>{h.technician_name || "—"}</td>
                     <td>
                       <span
                         className={`${styles.badge} ${

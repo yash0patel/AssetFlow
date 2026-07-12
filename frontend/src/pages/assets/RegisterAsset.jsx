@@ -5,33 +5,30 @@
  * All fields align with the backend Asset model.
  */
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import toast from "react-hot-toast";
 import { ROUTES } from "@routes/routeConstants";
-import {
-  MOCK_ASSETS,
-  MOCK_CATEGORIES,
-  MOCK_CONDITIONS,
-  MOCK_LOCATIONS,
-  MOCK_DEPARTMENTS,
-  generateAssetTag,
-} from "./mockAssets";
+import assetService from "@services/asset.service";
+import assetCategoryService from "@services/asset-category.service";
+import departmentService from "@services/department.service";
 import styles from "./asset.module.css";
+
+const CONDITIONS = ["New", "Good", "Fair", "Poor", "Damaged"];
 
 // ── Validation schema ──────────────────────────────────────────────────────────
 const registerSchema = z.object({
   name:             z.string().min(2, "Name is required"),
-  category:         z.string().min(1, "Category is required"),
+  category_id:      z.string().min(1, "Category is required"),
   serial_number:    z.string().optional(),
   acquisition_date: z.string().optional(),
   acquisition_cost: z.string().optional(),
   condition:        z.string().min(1, "Condition is required"),
-  location:         z.string().min(1, "Location is required"),
-  department:       z.string().optional(),
+  location_id:      z.string().min(1, "Location is required"),
+  department_id:    z.string().optional(),
   description:      z.string().optional(),
   is_bookable:      z.boolean().optional(),
 });
@@ -39,9 +36,27 @@ const registerSchema = z.object({
 export default function RegisterAsset() {
   const navigate    = useNavigate();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [categories, setCategories] = useState([]);
+  const [locations, setLocations] = useState([]);
+  const [departments, setDepartments] = useState([]);
 
-  // Auto-generate asset tag based on current mock data
-  const nextTag = generateAssetTag(MOCK_ASSETS);
+  useEffect(() => {
+    async function loadFormOptions() {
+      try {
+        const [catData, locData, deptData] = await Promise.all([
+          assetCategoryService.listCategories(),
+          assetService.listLocations(),
+          departmentService.listDepartments(),
+        ]);
+        setCategories(catData.items || catData);
+        setLocations(locData);
+        setDepartments(deptData.items || deptData);
+      } catch (err) {
+        console.error("Error loading register asset form options:", err);
+      }
+    }
+    loadFormOptions();
+  }, []);
 
   const {
     register,
@@ -54,11 +69,24 @@ export default function RegisterAsset() {
 
   const onSubmit = async (data) => {
     setIsSubmitting(true);
-    // Simulate async save
-    await new Promise((r) => setTimeout(r, 600));
-    toast.success(`Asset ${nextTag} registered successfully!`);
-    setIsSubmitting(false);
-    navigate(ROUTES.ASSETS);
+    try {
+      const payload = {
+        ...data,
+        serial_number: data.serial_number || null,
+        acquisition_date: data.acquisition_date || null,
+        acquisition_cost: data.acquisition_cost ? parseFloat(data.acquisition_cost) : null,
+        department_id: data.department_id || null,
+        description: data.description || null,
+      };
+      const res = await assetService.registerAsset(payload);
+      toast.success(`Asset ${res.asset_tag} registered successfully!`);
+      navigate(ROUTES.ASSETS);
+    } catch (err) {
+      console.error(err);
+      toast.error(err.response?.data?.detail || "Failed to register asset.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -75,10 +103,10 @@ export default function RegisterAsset() {
         <form onSubmit={handleSubmit(onSubmit)} noValidate>
           <div className={styles.formGrid}>
 
-            {/* Auto-generated Asset Tag — read only */}
+            {/* Asset Tag Info */}
             <div className={styles.fieldGroup}>
-              <label className={styles.label}>Asset Tag (auto-generated)</label>
-              <input className={styles.input} value={nextTag} disabled readOnly />
+              <label className={styles.label}>Asset Tag</label>
+              <input className={styles.input} value="Auto-generated upon registration" disabled readOnly />
             </div>
 
             {/* Name */}
@@ -96,15 +124,15 @@ export default function RegisterAsset() {
             <div className={styles.fieldGroup}>
               <label className={styles.label}>Category *</label>
               <select
-                className={`${styles.select} ${errors.category ? styles.inputError : ""}`}
-                {...register("category")}
+                className={`${styles.select} ${errors.category_id ? styles.inputError : ""}`}
+                {...register("category_id")}
               >
                 <option value="">Select category…</option>
-                {MOCK_CATEGORIES.map((c) => (
-                  <option key={c} value={c}>{c}</option>
+                {categories.map((c) => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
                 ))}
               </select>
-              {errors.category && <span className={styles.errorText}>{errors.category.message}</span>}
+              {errors.category_id && <span className={styles.errorText}>{errors.category_id.message}</span>}
             </div>
 
             {/* Serial Number */}
@@ -149,7 +177,7 @@ export default function RegisterAsset() {
                 className={`${styles.select} ${errors.condition ? styles.inputError : ""}`}
                 {...register("condition")}
               >
-                {MOCK_CONDITIONS.map((c) => (
+                {CONDITIONS.map((c) => (
                   <option key={c} value={c}>{c}</option>
                 ))}
               </select>
@@ -160,24 +188,24 @@ export default function RegisterAsset() {
             <div className={styles.fieldGroup}>
               <label className={styles.label}>Location *</label>
               <select
-                className={`${styles.select} ${errors.location ? styles.inputError : ""}`}
-                {...register("location")}
+                className={`${styles.select} ${errors.location_id ? styles.inputError : ""}`}
+                {...register("location_id")}
               >
                 <option value="">Select location…</option>
-                {MOCK_LOCATIONS.map((l) => (
-                  <option key={l} value={l}>{l}</option>
+                {locations.map((l) => (
+                  <option key={l.id} value={l.id}>{l.name}</option>
                 ))}
               </select>
-              {errors.location && <span className={styles.errorText}>{errors.location.message}</span>}
+              {errors.location_id && <span className={styles.errorText}>{errors.location_id.message}</span>}
             </div>
 
             {/* Department */}
             <div className={styles.fieldGroup}>
               <label className={styles.label}>Owning Department</label>
-              <select className={styles.select} {...register("department")}>
+              <select className={styles.select} {...register("department_id")}>
                 <option value="">Select department…</option>
-                {MOCK_DEPARTMENTS.map((d) => (
-                  <option key={d} value={d}>{d}</option>
+                {departments.map((d) => (
+                  <option key={d.id} value={d.id}>{d.name}</option>
                 ))}
               </select>
             </div>

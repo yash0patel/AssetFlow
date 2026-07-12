@@ -9,16 +9,12 @@
  *   2 – Transfer Requests (pending approvals)
  */
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import toast from "react-hot-toast";
 import dayjs from "dayjs";
-import {
-  MOCK_ALLOCATABLE_ASSETS,
-  MOCK_EMPLOYEES,
-  MOCK_ACTIVE_ALLOCATIONS,
-  MOCK_TRANSFER_REQUESTS,
-  MOCK_HISTORY,
-} from "./mockAllocations";
+import assetService from "@services/asset.service";
+import employeeService from "@services/employee.service";
+import allocationService from "@services/allocation.service";
 import styles from "./allocation.module.css";
 
 const MAIN_TABS = ["Allocate / Transfer", "Active Allocations", "Transfer Requests"];
@@ -34,6 +30,11 @@ const TRANSFER_STATUS_CLASS = {
 export default function Allocations() {
   const [mainTab,  setMainTab]  = useState(0);
 
+  // ── Options state ──────────────────────────────────────────────────────────
+  const [allAssets, setAllAssets] = useState([]);
+  const [employees, setEmployees] = useState([]);
+  const [loading, setLoading] = useState(true);
+
   // ── Tab 0: Allocate / Transfer state ───────────────────────────────────────
   const [selectedAssetId,   setSelectedAssetId]   = useState("");
   const [selectedEmployee,  setSelectedEmployee]   = useState("");
@@ -41,19 +42,68 @@ export default function Allocations() {
   const [transferTo,        setTransferTo]         = useState("");
   const [transferReason,    setTransferReason]     = useState("");
   const [isSubmitting,      setIsSubmitting]       = useState(false);
+  const [selectedAssetHistory, setSelectedAssetHistory] = useState([]);
 
   // ── Tab 1: Active Allocations state ───────────────────────────────────────
-  const [allocations, setAllocations] = useState(MOCK_ACTIVE_ALLOCATIONS);
-  const [returnModal, setReturnModal] = useState(null); // { id, notes, condition }
+  const [allocations, setAllocations] = useState([]);
+  const [returnModal, setReturnModal] = useState(null); // id
   const [returnNotes, setReturnNotes] = useState("");
   const [returnCondition, setReturnCondition] = useState("Good");
 
   // ── Tab 2: Transfer Requests state ────────────────────────────────────────
-  const [transfers, setTransfers] = useState(MOCK_TRANSFER_REQUESTS);
+  const [transfers, setTransfers] = useState([]);
+
+  // ── Load core options ──────────────────────────────────────────────────────
+  const loadOptions = async () => {
+    try {
+      const [assetsData, empsData] = await Promise.all([
+        assetService.listAssets({ page_size: 100 }),
+        employeeService.listEmployees({ page_size: 100 }),
+      ]);
+      setAllAssets(assetsData.items || []);
+      setEmployees(empsData.items || []);
+    } catch (err) {
+      console.error("Error loading allocation options:", err);
+    }
+  };
+
+  const loadAllocations = async () => {
+    try {
+      const data = await allocationService.listAllocations();
+      setAllocations(data.items || []);
+    } catch (err) {
+      console.error("Error loading allocations:", err);
+    }
+  };
+
+  const loadTransfers = async () => {
+    try {
+      const data = await allocationService.listTransfers();
+      setTransfers(data.items || []);
+    } catch (err) {
+      console.error("Error loading transfers:", err);
+    }
+  };
+
+  useEffect(() => {
+    setLoading(true);
+    Promise.all([loadOptions(), loadAllocations(), loadTransfers()]).finally(() => setLoading(false));
+  }, []);
 
   // ── Derived: selected asset object ────────────────────────────────────────
-  const selectedAsset = MOCK_ALLOCATABLE_ASSETS.find((a) => a.id === selectedAssetId);
-  const isConflict    = !!selectedAsset?.current_holder;
+  const selectedAsset = allAssets.find((a) => a.id === selectedAssetId);
+  const isConflict    = selectedAsset && (selectedAsset.current_status === "Allocated" || selectedAsset.current_holder_employee_id);
+
+  // Load selected asset status/allocation history
+  useEffect(() => {
+    if (selectedAssetId) {
+      assetService.getAsset(selectedAssetId).then(data => {
+        setSelectedAssetHistory(data.status_history || []);
+      }).catch(err => console.error("Error loading asset details for history:", err));
+    } else {
+      setSelectedAssetHistory([]);
+    }
+  }, [selectedAssetId]);
 
   // ── Handlers: Allocate ────────────────────────────────────────────────────
   const handleAllocate = async () => {
@@ -62,12 +112,23 @@ export default function Allocations() {
       return;
     }
     setIsSubmitting(true);
-    await new Promise((r) => setTimeout(r, 600));
-    toast.success(`Asset ${selectedAsset.asset_tag} allocated successfully.`);
-    setSelectedAssetId("");
-    setSelectedEmployee("");
-    setExpectedReturn("");
-    setIsSubmitting(false);
+    try {
+      await allocationService.allocateAsset({
+        asset_id: selectedAssetId,
+        allocated_to_employee_id: selectedEmployee,
+        expected_return_date: expectedReturn || null,
+      });
+      toast.success("Asset allocated successfully.");
+      setSelectedAssetId("");
+      setSelectedEmployee("");
+      setExpectedReturn("");
+      // Reload states
+      await Promise.all([loadOptions(), loadAllocations()]);
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Failed to allocate asset.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   // ── Handlers: Transfer Request ─────────────────────────────────────────────
@@ -76,40 +137,74 @@ export default function Allocations() {
       toast.error("Select destination employee and provide a reason.");
       return;
     }
+
+    // Find the active allocation ID for this asset
+    const activeAlloc = allocations.find(a => a.asset_id === selectedAssetId && a.status === "Active");
+    if (!activeAlloc) {
+      toast.error("Could not find an active allocation to transfer from.");
+      return;
+    }
+
     setIsSubmitting(true);
-    await new Promise((r) => setTimeout(r, 600));
-    toast.success("Transfer request submitted for approval.");
-    setTransferTo("");
-    setTransferReason("");
-    setIsSubmitting(false);
+    try {
+      await allocationService.createTransferRequest(activeAlloc.id, {
+        to_employee_id: transferTo,
+        reason: transferReason,
+      });
+      toast.success("Transfer request submitted for approval.");
+      setTransferTo("");
+      setTransferReason("");
+      setSelectedAssetId("");
+      await Promise.all([loadOptions(), loadTransfers()]);
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Failed to submit transfer request.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   // ── Handlers: Return ──────────────────────────────────────────────────────
   const openReturnModal = (id) => setReturnModal(id);
   const handleReturn = async () => {
     setIsSubmitting(true);
-    await new Promise((r) => setTimeout(r, 600));
-    setAllocations((prev) =>
-      prev.map((a) =>
-        a.id === returnModal
-          ? { ...a, status: "Returned", overdue: false }
-          : a
-      )
-    );
-    toast.success("Asset marked as returned.");
-    setReturnModal(null);
-    setReturnNotes("");
-    setReturnCondition("Good");
-    setIsSubmitting(false);
+    try {
+      await allocationService.returnAsset(returnModal, {
+        return_condition: returnCondition,
+        return_notes: returnNotes || null,
+      });
+      toast.success("Asset marked as returned.");
+      setReturnModal(null);
+      setReturnNotes("");
+      setReturnCondition("Good");
+      await Promise.all([loadOptions(), loadAllocations()]);
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Failed to return asset.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   // ── Handlers: Approve / Reject Transfer ───────────────────────────────────
-  const handleTransferAction = (id, action) => {
-    setTransfers((prev) =>
-      prev.map((t) => (t.id === id ? { ...t, status: action } : t))
-    );
-    toast.success(`Transfer request ${action.toLowerCase()}.`);
+  const handleTransferApproval = async (id, approve) => {
+    try {
+      if (approve) {
+        await allocationService.approveTransfer(id);
+        toast.success("Transfer request approved.");
+      } else {
+        const rejectionReason = window.prompt("Enter rejection reason:");
+        if (rejectionReason === null) return; // cancel prompt
+        await allocationService.rejectTransfer(id, { rejection_reason: rejectionReason || "Rejected" });
+        toast.success("Transfer request rejected.");
+      }
+      await Promise.all([loadOptions(), loadAllocations(), loadTransfers()]);
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Failed to process transfer request.");
+    }
   };
+
+  if (loading) {
+    return <div className={styles.container}>Loading allocations data...</div>;
+  }
 
   return (
     <div className={styles.container}>
@@ -143,9 +238,9 @@ export default function Allocations() {
               }}
             >
               <option value="">Select an asset…</option>
-              {MOCK_ALLOCATABLE_ASSETS.map((a) => (
+              {allAssets.map((a) => (
                 <option key={a.id} value={a.id}>
-                  {a.asset_tag} – {a.name}
+                  {a.asset_tag} – {a.name} ({a.current_status})
                 </option>
               ))}
             </select>
@@ -158,8 +253,7 @@ export default function Allocations() {
                 <>
                   <div className={styles.conflictBanner}>
                     <span className={styles.conflictTitle}>
-                      Already Allocated to {selectedAsset.current_holder.name}{" "}
-                      ({selectedAsset.current_holder.department})
+                      Already Allocated to {selectedAsset.current_holder_name || "another owner"}
                     </span>
                     <span className={styles.conflictSub}>
                       Direct re-allocation is blocked — submit a transfer request below
@@ -174,7 +268,7 @@ export default function Allocations() {
                         <label className={styles.label}>From</label>
                         <input
                           className={styles.input}
-                          value={selectedAsset.current_holder.name}
+                          value={selectedAsset.current_holder_name || "Current Holder"}
                           disabled
                         />
                       </div>
@@ -186,11 +280,11 @@ export default function Allocations() {
                           onChange={(e) => setTransferTo(e.target.value)}
                         >
                           <option value="">Select Employee…</option>
-                          {MOCK_EMPLOYEES.filter(
-                            (emp) => emp.id !== selectedAsset.current_holder.id
+                          {employees.filter(
+                            (emp) => emp.id !== selectedAsset.current_holder_employee_id
                           ).map((emp) => (
                             <option key={emp.id} value={emp.id}>
-                              {emp.name} – {emp.department}
+                              {emp.name} – {emp.department_name}
                             </option>
                           ))}
                         </select>
@@ -230,9 +324,9 @@ export default function Allocations() {
                           onChange={(e) => setSelectedEmployee(e.target.value)}
                         >
                           <option value="">Select Employee…</option>
-                          {MOCK_EMPLOYEES.map((emp) => (
+                          {employees.map((emp) => (
                             <option key={emp.id} value={emp.id}>
-                              {emp.name} – {emp.department}
+                              {emp.name} – {emp.department_name}
                             </option>
                           ))}
                         </select>
@@ -259,15 +353,21 @@ export default function Allocations() {
                 </>
               )}
 
-              {/* ── Allocation History (always shown) ──────────────────────── */}
-              <span className={styles.sectionTitle}>Allocation History</span>
+              {/* ── Status History (always shown) ──────────────────────── */}
+              <span className={styles.sectionTitle}>Status / Transaction History</span>
               <div className={styles.historyList}>
-                {MOCK_HISTORY.map((h, i) => (
-                  <div key={i} className={styles.historyItem}>
-                    <span className={styles.historyDate}>{h.date}</span>
-                    <span>{h.event}</span>
-                  </div>
-                ))}
+                {selectedAssetHistory.length > 0 ? (
+                  selectedAssetHistory.map((h, i) => (
+                    <div key={i} className={styles.historyItem}>
+                      <span className={styles.historyDate}>{new Date(h.changed_at).toLocaleString()}</span>
+                      <span>
+                        Changed status to <strong>{h.new_status}</strong> {h.remarks ? `(${h.remarks})` : ""}
+                      </span>
+                    </div>
+                  ))
+                ) : (
+                  <div className={styles.historyItem}>No transition history available.</div>
+                )}
               </div>
             </>
           )}
@@ -282,8 +382,8 @@ export default function Allocations() {
               <thead>
                 <tr>
                   <th>Asset</th>
-                  <th>Employee</th>
-                  <th>Department</th>
+                  <th>Target</th>
+                  <th>Type</th>
                   <th>Allocated On</th>
                   <th>Expected Return</th>
                   <th>Status</th>
@@ -294,7 +394,7 @@ export default function Allocations() {
                 {allocations.map((alloc) => (
                   <tr
                     key={alloc.id}
-                    className={alloc.overdue ? styles.overdueRow : ""}
+                    className={alloc.is_overdue ? styles.overdueRow : ""}
                   >
                     <td>
                       <span className={styles.monoText}>{alloc.asset_tag}</span>
@@ -302,18 +402,20 @@ export default function Allocations() {
                         {alloc.asset_name}
                       </div>
                     </td>
-                    <td className={styles.primaryText}>{alloc.employee}</td>
-                    <td>{alloc.department}</td>
-                    <td>{alloc.allocated_on}</td>
+                    <td className={styles.primaryText}>
+                      {alloc.allocated_to_employee_name || alloc.allocated_to_department_name}
+                    </td>
+                    <td>{alloc.allocated_to_employee_id ? "Employee" : "Department"}</td>
+                    <td>{new Date(alloc.allocation_date).toLocaleDateString()}</td>
                     <td>
-                      {alloc.expected_return
-                        ? alloc.expected_return
+                      {alloc.expected_return_date
+                        ? alloc.expected_return_date
                         : <span style={{ color: "var(--color-text-subtle)" }}>—</span>}
                     </td>
                     <td>
                       <span
                         className={`${styles.badge} ${
-                          alloc.overdue ? styles.badgeOverdue :
+                          alloc.is_overdue ? styles.badgeOverdue :
                           alloc.status === "Returned" ? styles.badgeReturned :
                           styles.badgeActive
                         }`}
@@ -322,7 +424,7 @@ export default function Allocations() {
                       </span>
                     </td>
                     <td>
-                      {alloc.status !== "Returned" && (
+                      {alloc.status === "Active" && (
                         <button
                           className={`${styles.actionLink}`}
                           onClick={() => openReturnModal(alloc.id)}
@@ -339,7 +441,7 @@ export default function Allocations() {
 
           {/* Return modal — inline lightweight */}
           {returnModal && (
-            <div className={styles.card} style={{ border: "1px solid var(--color-primary-300)" }}>
+            <div className={styles.card} style={{ border: "1px solid var(--color-primary-300)", marginTop: "1rem" }}>
               <span className={styles.sectionTitle}>Return Check-in</span>
               <div className={styles.twoCol}>
                 <div className={styles.fieldGroup}>
@@ -405,10 +507,10 @@ export default function Allocations() {
                       {tr.asset_name}
                     </div>
                   </td>
-                  <td>{tr.from}</td>
-                  <td className={styles.primaryText}>{tr.to}</td>
+                  <td>{tr.from_employee_name}</td>
+                  <td className={styles.primaryText}>{tr.to_employee_name}</td>
                   <td style={{ maxWidth: "200px", fontSize: "0.875rem" }}>{tr.reason}</td>
-                  <td>{tr.requested_on}</td>
+                  <td>{new Date(tr.created_at).toLocaleDateString()}</td>
                   <td>
                     <span className={`${styles.badge} ${TRANSFER_STATUS_CLASS[tr.status] || ""}`}>
                       {tr.status}
@@ -419,13 +521,13 @@ export default function Allocations() {
                       <div style={{ display: "flex", gap: "var(--space-3)" }}>
                         <button
                           className={styles.actionLink}
-                          onClick={() => handleTransferAction(tr.id, "Approved")}
+                          onClick={() => handleTransferApproval(tr.id, true)}
                         >
                           Approve
                         </button>
                         <button
                           className={`${styles.actionLink} ${styles.dangerLink}`}
-                          onClick={() => handleTransferAction(tr.id, "Rejected")}
+                          onClick={() => handleTransferApproval(tr.id, false)}
                         >
                           Reject
                         </button>

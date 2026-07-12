@@ -4,10 +4,11 @@
  * Screen 6: Resource Booking Screen.
  */
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import toast from "react-hot-toast";
 import dayjs from "dayjs";
-import { MOCK_BOOKABLE_RESOURCES, MOCK_BOOKINGS } from "./mockBookings";
+import assetService from "@services/asset.service";
+import bookingService from "@services/booking.service";
 import styles from "./bookings.module.css";
 
 const STATUS_CLASS = {
@@ -24,6 +25,7 @@ const PIXELS_PER_MINUTE = 1; // 60px per hour
 
 // Helper to convert "HH:mm" to minutes since START_HOUR
 function timeToOffset(timeStr) {
+  if (!timeStr) return 0;
   const [h, m] = timeStr.split(":").map(Number);
   return (h - START_HOUR) * 60 + m;
 }
@@ -34,25 +36,71 @@ function checkOverlap(s1, e1, s2, e2) {
 }
 
 export default function Bookings() {
-  const [selectedResource, setSelectedResource] = useState(MOCK_BOOKABLE_RESOURCES[0].id);
-  // Default to the mock date
-  const [selectedDate, setSelectedDate] = useState("2026-07-07"); 
+  const [resources, setResources] = useState([]);
+  const [selectedResource, setSelectedResource] = useState("");
+  // Default to today's date
+  const [selectedDate, setSelectedDate] = useState(dayjs().format("YYYY-MM-DD")); 
   
-  const [bookings, setBookings] = useState(MOCK_BOOKINGS);
+  const [bookings, setBookings] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [loading, setLoading] = useState(true);
   
   // New Booking State
   const [newTitle, setNewTitle] = useState("");
   const [newStart, setNewStart] = useState("09:30");
   const [newEnd, setNewEnd] = useState("10:30");
 
+  // Load resources
+  useEffect(() => {
+    async function loadResources() {
+      try {
+        const assets = await assetService.listBookableAssets();
+        setResources(assets);
+        if (assets.length > 0) {
+          setSelectedResource(assets[0].id);
+        }
+      } catch (err) {
+        console.error("Error loading resources:", err);
+      }
+    }
+    loadResources();
+  }, []);
+
+  // Load bookings for selected resource
+  const loadBookings = async () => {
+    if (!selectedResource) return;
+    setLoading(true);
+    try {
+      const data = await bookingService.listBookings({ asset_id: selectedResource });
+      setBookings(data.items || []);
+    } catch (err) {
+      console.error("Error loading bookings:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadBookings();
+  }, [selectedResource]);
+
   // Get active bookings for the selected resource and date
   const activeBookings = useMemo(() => {
-    return bookings.filter(
-      (b) => b.resource_id === selectedResource && b.date === selectedDate && b.status !== "Cancelled"
-    );
-  }, [bookings, selectedResource, selectedDate]);
+    return bookings.filter((b) => {
+      const isSameDate = dayjs(b.start_datetime).format("YYYY-MM-DD") === selectedDate;
+      return isSameDate && b.status !== "Cancelled";
+    }).map(b => {
+      const start = dayjs(b.start_datetime).format("HH:mm");
+      const end = dayjs(b.end_datetime).format("HH:mm");
+      return {
+        ...b,
+        start_time: start,
+        end_time: end,
+        booked_by: b.booked_by_name || "Employee",
+      };
+    });
+  }, [bookings, selectedDate]);
 
   // Check if the current draft booking overlaps with any active bookings
   const draftConflict = useMemo(() => {
@@ -74,7 +122,7 @@ export default function Bookings() {
   const handleBookSlot = async (e) => {
     e.preventDefault();
     if (!newTitle.trim()) {
-      toast.error("Please provide a booking title.");
+      toast.error("Please provide a booking purpose/title.");
       return;
     }
     if (draftConflict) {
@@ -83,31 +131,42 @@ export default function Bookings() {
     }
 
     setIsSubmitting(true);
-    await new Promise((r) => setTimeout(r, 600)); // simulate network
-    
-    const newBooking = {
-      id: `b${Date.now()}`,
-      resource_id: selectedResource,
-      date: selectedDate,
-      start_time: newStart,
-      end_time: newEnd,
-      booked_by: newTitle,
-      status: "Upcoming",
-    };
-    
-    setBookings([...bookings, newBooking]);
-    toast.success("Booking confirmed! Reminder notification scheduled.");
-    setIsModalOpen(false);
-    setNewTitle("");
-    setIsSubmitting(false);
+    try {
+      const start_datetime = dayjs(`${selectedDate}T${newStart}:00`).toISOString();
+      const end_datetime = dayjs(`${selectedDate}T${newEnd}:00`).toISOString();
+
+      await bookingService.createBooking({
+        asset_id: selectedResource,
+        start_datetime,
+        end_datetime,
+        purpose: newTitle,
+      });
+
+      toast.success("Booking confirmed! Reminder notification scheduled.");
+      setIsModalOpen(false);
+      setNewTitle("");
+      await loadBookings();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Failed to create booking.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const cancelBooking = (id) => {
-    setBookings((prev) =>
-      prev.map((b) => (b.id === id ? { ...b, status: "Cancelled" } : b))
-    );
-    toast.success("Booking cancelled.");
+  const handleCancelBooking = async (id) => {
+    if (!window.confirm("Are you sure you want to cancel this booking?")) return;
+    try {
+      await bookingService.cancelBooking(id, { cancellation_reason: "User cancelled" });
+      toast.success("Booking cancelled.");
+      await loadBookings();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Failed to cancel booking.");
+    }
   };
+
+  if (loading && resources.length === 0) {
+    return <div className={styles.container}>Loading resources...</div>;
+  }
 
   return (
     <div className={styles.container}>
@@ -120,9 +179,9 @@ export default function Bookings() {
             value={selectedResource}
             onChange={(e) => setSelectedResource(e.target.value)}
           >
-            {MOCK_BOOKABLE_RESOURCES.map((r) => (
+            {resources.map((r) => (
               <option key={r.id} value={r.id}>
-                {r.name}
+                {r.name} ({r.category_name})
               </option>
             ))}
           </select>
@@ -163,7 +222,7 @@ export default function Bookings() {
               className={`${styles.bookingBlock} ${styles.bookingBooked}`}
               style={{ top: `${top}px`, height: `${height}px` }}
             >
-              <span className={styles.bookingTitle}>Booked - {b.booked_by}</span>
+              <span className={styles.bookingTitle}>{b.purpose || "Booked"} - {b.booked_by}</span>
               <span>{b.start_time} to {b.end_time}</span>
             </div>
           );
@@ -176,7 +235,7 @@ export default function Bookings() {
             style={{
               top: `${Math.max(0, timeToOffset(newStart) * PIXELS_PER_MINUTE)}px`,
               height: `${Math.max(10, (timeToOffset(newEnd) - timeToOffset(newStart)) * PIXELS_PER_MINUTE)}px`,
-              opacity: draftConflict ? 1 : 0.5, // 50% opacity if it's fine, 100% if conflict
+              opacity: draftConflict ? 1 : 0.5,
             }}
           >
             {draftConflict ? (
@@ -190,7 +249,7 @@ export default function Bookings() {
 
       {/* ── Book Action ────────────────────────────────────────────────────── */}
       <div style={{ marginTop: "var(--space-4)" }}>
-        <button className={styles.primaryBtn} onClick={() => setIsModalOpen(true)}>
+        <button className={styles.primaryBtn} onClick={() => setIsModalOpen(true)} disabled={resources.length === 0}>
           Book a slot
         </button>
       </div>
@@ -204,7 +263,7 @@ export default function Bookings() {
           activeBookings.map((b) => (
             <div key={b.id} className={styles.bookingItem}>
               <div className={styles.bookingItemMeta}>
-                <span className={styles.bookingItemTitle}>{b.booked_by}</span>
+                <span className={styles.bookingItemTitle}>{b.purpose || "Booked"} by {b.booked_by}</span>
                 <span className={styles.bookingItemTime}>{b.start_time} - {b.end_time}</span>
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: "var(--space-4)" }}>
@@ -212,7 +271,7 @@ export default function Bookings() {
                   {b.status}
                 </span>
                 {b.status === "Upcoming" && (
-                  <button className={styles.actionLink} onClick={() => cancelBooking(b.id)}>
+                  <button className={styles.actionLink} onClick={() => handleCancelBooking(b.id)}>
                     Cancel
                   </button>
                 )}
@@ -234,7 +293,7 @@ export default function Bookings() {
             
             <form onSubmit={handleBookSlot} style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)" }}>
               <div className={styles.fieldGroup}>
-                <label className={styles.fieldLabel}>Booking Title</label>
+                <label className={styles.fieldLabel}>Booking Title/Purpose</label>
                 <input
                   className={styles.input}
                   placeholder="e.g. Design Team Sync"
